@@ -150,7 +150,13 @@ uv run agent-platform eval                            # eval suite on an in-proc
 The `agent-platform` command provides `demo`, `keys`, `serve`, `worker`, `ingest`, `ask`,
 `chat`, `mcp`, `jobs`, and `eval` subcommands.
 
-`chat` reads questions from the terminal and prints each agent step as it streams in:
+`chat` reads questions from the terminal and prints each agent step as it streams in. The
+recording below is a real run (regenerate with `vhs docs/demo/chat.tape`): a grounded answer
+with its citation, a calculator call, and a prompt injection refused by the gateway.
+
+<p align="center">
+  <img src="docs/demo/chat.gif" alt="agent-platform chat streaming agent steps" width="860">
+</p>
 
 ```text
 $ uv run agent-platform chat
