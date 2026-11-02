@@ -9,8 +9,8 @@ Accepted
 Jobs run for seconds to minutes across several steps. Workers can die at any point
 (SIGKILL, OOM, host loss). The platform needs to resume a job from its last completed step,
 never record a step twice, and never let two workers own a job at the same time. The
-project has a zero third-party runtime dependency rule, so a broker such as Redis or a
-server database is out of scope.
+platform is designed to run as a single deployable with no external services, so a broker
+such as Redis or a server database is out of scope.
 
 ## Decision
 

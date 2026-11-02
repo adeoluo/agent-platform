@@ -1,0 +1,13 @@
+flowchart LR
+    C([Client]) -->|Bearer key| API[HTTP API<br/>auth, rate limit, tracing]
+    API -->|POST /v1/ask| AG[ReAct agent]
+    AG --> GW[LLM gateway<br/>per tenant]
+    GW --> PM[Policy provider]
+    AG --> SR[search tool]
+    SR --> KB[Tenant index<br/>BM25 + TF-IDF + HNSW]
+    AG --> CA[calculator]
+    AG --> SO[Constrained JSON]
+    API -->|POST /v1/jobs| DB[(SQLite<br/>jobs, ledger, spans)]
+    W[Worker processes] -->|claim with lease,<br/>reclaim after expiry| DB
+    W --> OR[Orchestrator<br/>planner, worker, critic]
+    OR --> AG
