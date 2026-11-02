@@ -39,7 +39,8 @@ flowchart LR
         Knowledge[("Documents + index<br/>BM25, TF-IDF, HNSW")]:::data
         Ledger[("Jobs and leases<br/>step ledger")]:::data
         Spans[("Spans and keys<br/>per tenant")]:::data
-        Knowledge ~~~ Ledger ~~~ Spans
+        Memory[("Memory per tenant<br/>agent-memory, sessions")]:::data
+        Knowledge ~~~ Ledger ~~~ Spans ~~~ Memory
     end
 
     subgraph Obs["Observability"]
