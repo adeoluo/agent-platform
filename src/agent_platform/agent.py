@@ -11,6 +11,11 @@ question gets identical treatment on either path:
    and every citation refers to a retrieved document.
 4. If a response schema is supplied, the result is re-emitted under constrained decoding.
 
+An optional ``on_event`` callback receives each step as it happens (``step`` when the agent
+chooses a tool, ``observation`` when the tool returns). The streaming endpoint forwards these
+as server-sent events; an exception raised by the callback aborts the run, which is how a
+disconnected client stops the agent.
+
 Spans for the run, the model calls, and the tool calls are recorded on the caller's
 ``llm_observability.Tracer``.
 """
@@ -18,6 +23,7 @@ Spans for the run, the model calls, and the tool calls are recorded on the calle
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,6 +45,9 @@ from agent_platform.structured import generate_structured
 
 _CITATION = re.compile(r"\[([^\[\]\n]+)\]")
 MAX_QUESTION_CHARS = 2000
+OBSERVATION_PREVIEW = 500
+
+EventSink = Callable[[str, dict[str, Any]], None]
 
 
 @dataclass
@@ -138,6 +147,7 @@ class AgentRuntime:
         *,
         tracer: Tracer,
         schema: list[Property] | None = None,
+        on_event: EventSink | None = None,
     ) -> AskResult:
         """Answer ``question`` for ``tenant``. Raises ``GatewayBlockedError`` if refused."""
         question = normalize_question(question)
@@ -151,6 +161,23 @@ class AgentRuntime:
             span_name = f"agent.action.{action.tool}"
             with tracer.span(span_name, step=index, tool_input=action.tool_input[:200]):
                 pass
+            if on_event is not None:
+                on_event(
+                    "step",
+                    {
+                        "index": index,
+                        "thought": action.thought,
+                        "tool": action.tool,
+                        "input": action.tool_input,
+                    },
+                )
+
+        def on_observation(index: int, observation: str) -> None:
+            if on_event is not None:
+                on_event(
+                    "observation",
+                    {"index": index, "observation": observation[:OBSERVATION_PREVIEW]},
+                )
 
         with tracer.span("agent.run", tenant=tenant) as run_span:
             model = GatewayModel(self.gateways, tenant, on_response=on_response)
@@ -158,7 +185,7 @@ class AgentRuntime:
                 model,
                 self._tools(tenant, tracer, retrieved),
                 max_steps=self._max_steps,
-                callbacks=Callbacks(on_action=on_action),
+                callbacks=Callbacks(on_action=on_action, on_observation=on_observation),
             )
             result = agent.run(question)
             answer = result.answer if result.finished else NOT_FOUND
@@ -189,7 +216,7 @@ class AgentRuntime:
                 {
                     "tool": step.action.tool,
                     "input": step.action.tool_input,
-                    "observation": step.observation[:500],
+                    "observation": step.observation[:OBSERVATION_PREVIEW],
                 }
                 for step in result.steps
             ],
