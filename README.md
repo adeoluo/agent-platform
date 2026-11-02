@@ -29,8 +29,15 @@ runs offline and deterministically with the standard library plus those eight pa
   <img src="docs/architecture/architecture.svg" alt="Architecture diagram" width="860">
 </p>
 
-The request path and the job lifecycle are described step by step, with sequence and state
-diagrams, in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Design decisions are recorded in
+<sub>Legend: amber = entry points and external systems, indigo = core logic, green = data and state, blue = validation and control, grey = observability and outputs.</sub>
+
+A request is authenticated against hashed API keys and rate limited per tenant before it reaches
+a handler. `/v1/ask` runs the ReAct agent, whose model calls all pass through the tenant's safety
+gateway and whose search tool reads the tenant's hybrid index. `/v1/jobs` writes a durable job that
+separate worker processes claim under a lease and drive through the orchestrator, checkpointing the
+blackboard after every step. Spans, jobs, documents, and keys live in one SQLite file, and the eval
+suite exercises the public API. The request path and the job lifecycle are described step by
+step, with sequence and state diagrams, in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Design decisions are recorded in
 [docs/adr](docs/adr).
 
 ### How the libraries compose

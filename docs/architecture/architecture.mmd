@@ -1,13 +1,65 @@
-flowchart LR
-    C([Client]) -->|Bearer key| API[HTTP API<br/>auth, rate limit, tracing]
-    API -->|POST /v1/ask| AG[ReAct agent]
-    AG --> GW[LLM gateway<br/>per tenant]
-    GW --> PM[Policy provider]
-    AG --> SR[search tool]
-    SR --> KB[Tenant index<br/>BM25 + TF-IDF + HNSW]
-    AG --> CA[calculator]
-    AG --> SO[Constrained JSON]
-    API -->|POST /v1/jobs| DB[(SQLite<br/>jobs, ledger, spans)]
-    W[Worker processes] -->|claim with lease,<br/>reclaim after expiry| DB
-    W --> OR[Orchestrator<br/>planner, worker, critic]
-    OR --> AG
+flowchart TD
+    classDef edge     fill:#F59E0B,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+    classDef core     fill:#6366F1,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef data     fill:#10B981,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef control  fill:#0EA5E9,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef obs      fill:#CBD5E1,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+
+    Client(["Client or agent-platform CLI<br/>Bearer API key"]):::edge
+
+    subgraph Interfaces["Interfaces (threaded HTTP API)"]
+        direction TB
+        API["HTTP API<br/>/v1/ingest, /v1/ask, /v1/jobs, /v1/traces"]:::edge
+        Auth["KeyStore<br/>HMAC-hashed keys, tenant binding"]:::control
+        Limit["TenantRateLimiter<br/>per-tenant quotas"]:::control
+    end
+
+    subgraph Runtime["Agent runtime (one code path for API and workers)"]
+        direction TB
+        Agent["AgentRuntime.ask<br/>ReActAgent loop"]:::core
+        Tools["Tenant tools<br/>knowledge search, calculator"]:::core
+        Gateway["Per-tenant llm-gateway<br/>injection screen, PII, policy, cache"]:::control
+        Structured["Constrained JSON decoder<br/>schema to automaton"]:::control
+    end
+
+    Policy[["Grounded policy provider<br/>offline model"]]:::edge
+
+    subgraph Jobs["Durable jobs (separate worker processes)"]
+        direction TB
+        Worker["JobWorker<br/>claim lease, heartbeat, reclaim"]:::core
+        Orchestrator["Orchestrator<br/>planner, worker, critic"]:::core
+    end
+
+    subgraph State["State (one SQLite file in WAL mode)"]
+        direction TB
+        Knowledge[("Documents + per-tenant index<br/>BM25, TF-IDF, HNSW fused by RRF")]:::data
+        Ledger[("Jobs, leases, step ledger<br/>fencing tokens, blackboard checkpoints")]:::data
+        Spans[("Spans and API keys<br/>per tenant")]:::data
+    end
+
+    subgraph Observability["Observability and evaluation"]
+        direction TB
+        Tracer["Tracer<br/>request, agent, model, tool spans"]:::obs
+        Metrics["Prometheus /metrics<br/>latency, gateway, job counters"]:::obs
+        Eval["Eval suite<br/>evaluation-harness via public API"]:::obs
+    end
+
+    Client -->|HTTPS request| API
+    API --> Auth
+    Auth --> Limit
+    Limit -->|POST /v1/ask| Agent
+    Limit -->|POST /v1/ingest| Knowledge
+    Limit -->|POST /v1/jobs| Ledger
+    Agent --> Tools
+    Agent -->|every model call| Gateway
+    Gateway --> Policy
+    Agent -->|optional schema| Structured
+    Tools -.->|hybrid search| Knowledge
+    Worker -.->|claim and checkpoint| Ledger
+    Worker --> Orchestrator
+    Orchestrator -->|research steps| Agent
+    Auth -.->|hashed key lookup| Spans
+    Agent -.-> Tracer
+    Tracer -.->|persist| Spans
+    API -.-> Metrics
+    Eval -->|fixed question set| API
