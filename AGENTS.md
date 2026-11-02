@@ -32,6 +32,7 @@ Key modules:
 - `src/agent_platform/jobs.py`: Durable job storage: submission, lease-based claiming, checkpoints, and a step ledger.
 - `src/agent_platform/knowledge.py`: Per-tenant knowledge bases: durable documents and cached hybrid retrievers.
 - `src/agent_platform/mcp_server.py`: An MCP server (stdio transport) that exposes the platform to MCP clients.
+- `src/agent_platform/memory.py`: Per-tenant conversation memory built on ``agent_memory``.
 - `src/agent_platform/metrics.py`: A small thread-safe metrics registry rendered in the Prometheus text format.
 - `src/agent_platform/model.py`: The language-model path: a deterministic offline provider behind the safety gateway.
 - `src/agent_platform/orchestration.py`: Multi-agent jobs built on ``multi_agent_orchestrator``.
