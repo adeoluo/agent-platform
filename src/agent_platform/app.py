@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from llm_gateway import TenantRateLimiter
+from llm_gateway import Provider, TenantRateLimiter
 
 from agent_platform.agent import AgentRuntime
 from agent_platform.auth import KeyStore
@@ -14,6 +14,7 @@ from agent_platform.jobs import JobStore
 from agent_platform.knowledge import KnowledgeBase
 from agent_platform.metrics import Metrics
 from agent_platform.model import TenantGateways
+from agent_platform.providers import build_provider
 from agent_platform.tracing import TraceStore
 from agent_platform.worker import JobWorker
 
@@ -21,12 +22,14 @@ from agent_platform.worker import JobWorker
 class Platform:
     """Holds the shared services used by the API server, workers, and the CLI."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self, settings: Settings | None = None, *, provider: Provider | None = None
+    ) -> None:
         self.settings = settings or Settings.from_env()
         self.db = Database(self.settings.db_path)
         self.keys = KeyStore(self.db, pepper=self.settings.key_pepper)
         self.knowledge = KnowledgeBase(self.db)
-        self.gateways = TenantGateways()
+        self.gateways = TenantGateways(provider or build_provider())
         self.runtime = AgentRuntime(self.knowledge, self.gateways)
         self.jobs = JobStore(self.db, max_attempts=self.settings.max_attempts)
         self.traces = TraceStore(self.db)
