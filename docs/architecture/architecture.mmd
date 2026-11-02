@@ -5,61 +5,51 @@ flowchart LR
     classDef control  fill:#0EA5E9,stroke:#1E293B,color:#ffffff,stroke-width:1px;
     classDef obs      fill:#CBD5E1,stroke:#1E293B,color:#1E293B,stroke-width:1px;
 
-    Client(["Client or agent-platform CLI<br/>Bearer API key"]):::edge
-
-    subgraph Interfaces["Interfaces (threaded HTTP API)"]
+    subgraph Interfaces["Interfaces (HTTP API)"]
         direction TB
-        API["HTTP API<br/>/v1/ingest, /v1/ask, /v1/jobs, /v1/traces"]:::edge
-        Auth["KeyStore<br/>HMAC-hashed keys, tenant binding"]:::control
-        Limit["TenantRateLimiter<br/>per-tenant quotas"]:::control
+        Client([Client or CLI]):::edge
+        API["HTTP API<br/>ask, ingest, jobs"]:::edge
+        Auth["KeyStore<br/>hashed API keys"]:::control
+        Limit["Rate limiter<br/>per tenant"]:::control
+        Client --> API --> Auth --> Limit
     end
 
-    subgraph Runtime["Agent runtime (one code path for API and workers)"]
+    subgraph Jobs["Durable jobs"]
         direction TB
-        Agent["AgentRuntime.ask<br/>ReActAgent loop"]:::core
-        Tools["Tenant tools<br/>knowledge search, calculator"]:::core
-        Gateway["Per-tenant llm-gateway<br/>injection screen, PII, policy, cache"]:::control
-        Structured["Constrained JSON decoder<br/>schema to automaton"]:::control
+        Worker["JobWorker<br/>lease, heartbeat"]:::core
+        Orch["Orchestrator<br/>planner, worker, critic"]:::core
+        Worker --> Orch
     end
 
-    Policy[["Grounded policy provider<br/>offline model"]]:::edge
-
-    subgraph Jobs["Durable jobs (separate worker processes)"]
+    subgraph Runtime["Agent runtime"]
         direction TB
-        Worker["JobWorker<br/>claim lease, heartbeat, reclaim"]:::core
-        Orchestrator["Orchestrator<br/>planner, worker, critic"]:::core
+        Agent["AgentRuntime.ask<br/>ReAct loop"]:::core
+        Tools["Tenant tools<br/>search, calculator"]:::core
+        Gateway["llm-gateway<br/>screen, redact, cache"]:::control
+        Policy[["Policy provider<br/>offline model"]]:::edge
+        Structured["Constrained JSON<br/>schema automaton"]:::control
+        Agent --> Gateway --> Policy ~~~ Tools ~~~ Structured
     end
 
-    subgraph State["State (one SQLite file in WAL mode)"]
+    subgraph State["State (SQLite, WAL)"]
         direction TB
-        Knowledge[("Documents + per-tenant index<br/>BM25, TF-IDF, HNSW fused by RRF")]:::data
-        Ledger[("Jobs, leases, step ledger<br/>fencing tokens, blackboard checkpoints")]:::data
-        Spans[("Spans and API keys<br/>per tenant")]:::data
+        Knowledge[("Documents + index<br/>BM25, TF-IDF, HNSW")]:::data
+        Ledger[("Jobs and leases<br/>step ledger")]:::data
+        Spans[("Spans and keys<br/>per tenant")]:::data
+        Knowledge ~~~ Ledger ~~~ Spans
     end
 
-    subgraph Observability["Observability and evaluation"]
+    subgraph Obs["Observability"]
         direction TB
-        Tracer["Tracer<br/>request, agent, model, tool spans"]:::obs
-        Metrics["Prometheus /metrics<br/>latency, gateway, job counters"]:::obs
-        Eval["Eval suite<br/>evaluation-harness via public API"]:::obs
+        Tracer["Tracer<br/>request to tool spans"]:::obs
+        Metrics["Prometheus<br/>/metrics"]:::obs
+        Eval["Eval suite<br/>via public API"]:::obs
+        Tracer ~~~ Metrics ~~~ Eval
     end
 
-    Client -->|HTTPS request| API
-    API --> Auth
-    Auth --> Limit
-    Limit -->|POST /v1/ask| Agent
-    Limit -->|POST /v1/ingest| Knowledge
-    Limit -->|POST /v1/jobs| Ledger
-    Agent --> Tools
-    Agent -->|every model call| Gateway
-    Gateway --> Policy
-    Agent -->|optional schema| Structured
-    Tools -.->|hybrid search| Knowledge
-    Worker -.->|claim and checkpoint| Ledger
-    Worker --> Orchestrator
-    Orchestrator -->|research steps| Agent
-    Auth -.->|hashed key lookup| Spans
-    Agent -.-> Tracer
-    Tracer -.->|persist| Spans
-    API -.-> Metrics
-    Eval -->|fixed question set| API
+    Interfaces -->|ask| Runtime
+    Interfaces -->|submit job| State
+    Jobs -->|research steps| Runtime
+    Jobs -.->|claim, checkpoint| State
+    Runtime -.->|search, spans| State
+    Runtime -.->|spans, counters| Obs
