@@ -4,7 +4,13 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
-## Unreleased
+## [0.2.0] 2026-11-02
+
+### Features
+
+- **providers:** OpenAI and Anthropic providers with classified errors and failover
+- **api:** Stream agent steps over server-sent events
+- **mcp:** Serve the platform to MCP clients over stdio, add chat command
 
 ### Documentation
 
@@ -12,6 +18,8 @@ with `make cut-release`.
 - Vertical layered architecture diagram
 - Horizontal layered architecture diagram
 - Compact horizontal architecture diagram
+- Providers, streaming, MCP and chat in README, diagram and agent notes
+- List the provider and MCP modules in AGENTS.md and llms.txt
 
 ### Build and CI
 
