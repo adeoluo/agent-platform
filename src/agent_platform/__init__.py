@@ -7,6 +7,11 @@ and an evaluation suite behind one HTTP API backed by SQLite.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("agent-platform")
+except PackageNotFoundError:  # running from a source tree without installation
+    __version__ = "0.0.0"
 
 __all__ = ["__version__"]

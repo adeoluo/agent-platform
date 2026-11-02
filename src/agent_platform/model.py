@@ -6,8 +6,9 @@ Two adapters connect the libraries:
   a ReAct prompt and emits the next step: a calculator call for arithmetic, a knowledge-base
   search otherwise, and, once observations are in, a final answer built from the best
   supporting sentence with a ``[doc_id]`` citation. It is a transparent, deterministic
-  stand-in for a hosted model so the whole platform runs offline and reproducibly. A real
-  provider (for example ``llm_gateway.AnthropicProvider``) can be swapped in unchanged.
+  stand-in for a hosted model so the whole platform runs offline and reproducibly. Hosted
+  providers (OpenAI, Anthropic, or a failover chain) live in :mod:`agent_platform.providers`
+  and are selected with ``AGENT_PLATFORM_PROVIDER``.
 * :class:`GatewayModel` implements the ``react_agent`` language-model protocol by sending
   every completion through a tenant's ``llm_gateway.Gateway``, so injection screening, PII
   redaction, output policy, and caching apply to every model call the agent makes,
@@ -168,6 +169,10 @@ class TenantGateways:
         self._gateways: dict[str, tuple[Gateway, threading.Lock]] = {}
         self._lock = threading.Lock()
 
+    @property
+    def provider_name(self) -> str:
+        return str(getattr(self._provider, "name", type(self._provider).__name__))
+
     def _get(self, tenant: str) -> tuple[Gateway, threading.Lock]:
         with self._lock:
             entry = self._gateways.get(tenant)
@@ -222,7 +227,7 @@ class GatewayModel:
 
     @property
     def name(self) -> str:
-        return "gateway:grounded-policy-v1"
+        return f"gateway:{self._gateways.provider_name}"
 
     def complete(self, prompt: str, *, stop: Sequence[str] | None = None) -> str:
         response = self._gateways.handle(self._tenant, prompt)
