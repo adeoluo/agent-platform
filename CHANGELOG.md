@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
+## [0.3.1] 2026-11-02
+
+### Documentation
+
+- Recorded terminal demo of a real run, with its vhs tape
+
 ## [0.3.0] 2026-11-02
 
 ### Features
