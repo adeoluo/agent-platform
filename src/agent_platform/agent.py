@@ -11,6 +11,10 @@ question gets identical treatment on either path:
    and every citation refers to a retrieved document.
 4. If a response schema is supplied, the result is re-emitted under constrained decoding.
 
+With a ``session_id``, the search tool also returns the tenant's relevant memories as
+``[memory:<id>]`` passages (cited and grounding-checked like documents), and the question and
+answer are stored in that session afterwards (see :mod:`agent_platform.memory`).
+
 An optional ``on_event`` callback receives each step as it happens (``step`` when the agent
 chooses a tool, ``observation`` when the tool returns). The streaming endpoint forwards these
 as server-sent events; an exception raised by the callback aborts the run, which is how a
@@ -34,6 +38,7 @@ from react_agent import AgentAction, Callbacks, FunctionTool, ReActAgent, ToolRe
 from react_agent.tools import CalculatorTool
 
 from agent_platform.knowledge import KnowledgeBase, Passage
+from agent_platform.memory import MemoryHit, TenantMemory
 from agent_platform.model import (
     NOT_FOUND,
     SEARCH_TOOL,
@@ -103,20 +108,35 @@ class AgentRuntime:
         *,
         top_k: int = 3,
         max_steps: int = 4,
+        memory: TenantMemory | None = None,
     ) -> None:
         self.knowledge = knowledge
+        self.memory = memory
         self.gateways = gateways or TenantGateways()
         self._top_k = top_k
         self._max_steps = max_steps
 
-    def _tools(self, tenant: str, tracer: Tracer, retrieved: list[Passage]) -> ToolRegistry:
+    def _tools(
+        self,
+        tenant: str,
+        tracer: Tracer,
+        retrieved: list[Passage],
+        recalled: list[MemoryHit],
+        use_memory: bool,
+    ) -> ToolRegistry:
         def search(query: str) -> str:
             with tracer.span("tool.search_knowledge_base", tenant=tenant) as span:
                 passages = self.knowledge.search(tenant, query, k=self._top_k)
                 retrieved.extend(passages)
+                found = [(p.doc_id, p.text) for p in passages]
+                if use_memory and self.memory is not None:
+                    hits = self.memory.recall(tenant, query, k=self._top_k)
+                    recalled.extend(hits)
+                    found.extend((h.doc_id, h.text) for h in hits)
+                    span.set_attribute("memories", len(hits))
                 span.set_attribute("results", len(passages))
-                span.set_attribute("doc_ids", [p.doc_id for p in passages])
-                return format_passages([(p.doc_id, p.text) for p in passages])
+                span.set_attribute("doc_ids", [doc for doc, _ in found])
+                return format_passages(found)
 
         calculator = CalculatorTool()
 
@@ -148,10 +168,13 @@ class AgentRuntime:
         tracer: Tracer,
         schema: list[Property] | None = None,
         on_event: EventSink | None = None,
+        session_id: str | None = None,
     ) -> AskResult:
         """Answer ``question`` for ``tenant``. Raises ``GatewayBlockedError`` if refused."""
         question = normalize_question(question)
         retrieved: list[Passage] = []
+        recalled: list[MemoryHit] = []
+        use_memory = session_id is not None and self.memory is not None
         responses: list[GatewayResponse] = []
 
         def on_response(response: GatewayResponse) -> None:
@@ -183,13 +206,13 @@ class AgentRuntime:
             model = GatewayModel(self.gateways, tenant, on_response=on_response)
             agent = ReActAgent(
                 model,
-                self._tools(tenant, tracer, retrieved),
+                self._tools(tenant, tracer, retrieved, recalled, use_memory),
                 max_steps=self._max_steps,
                 callbacks=Callbacks(on_action=on_action, on_observation=on_observation),
             )
             result = agent.run(question)
             answer = result.answer if result.finished else NOT_FOUND
-            retrieved_ids = {p.doc_id for p in retrieved}
+            retrieved_ids = {p.doc_id for p in retrieved} | {h.doc_id for h in recalled}
             cited = list(dict.fromkeys(_CITATION.findall(answer)))
             grounded = bool(cited) and all(doc in retrieved_ids for doc in cited)
             run_span.set_attribute("steps", result.step_count)
@@ -205,6 +228,10 @@ class AgentRuntime:
             sources.append(
                 {"doc_id": passage.doc_id, "chunk_id": passage.chunk_id, "score": passage.score}
             )
+        for hit in recalled:
+            if hit.doc_id not in seen:
+                seen.add(hit.doc_id)
+                sources.append({"doc_id": hit.doc_id, "memory": hit.to_dict(), "score": hit.score})
         outcome = AskResult(
             question=question,
             answer=answer,
@@ -237,4 +264,7 @@ class AgentRuntime:
                 structured = generate_structured(schema, fields)
                 span.set_attribute("tokens", structured.tokens)
                 outcome.structured = structured.value
+        if session_id is not None and self.memory is not None:
+            with tracer.span("memory.record_turn", session_id=session_id):
+                self.memory.record_turn(tenant, session_id, question, answer)
         return outcome

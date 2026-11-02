@@ -15,6 +15,7 @@ dependencies = [
     "constrained-generation-library",
     "evaluation-harness",
     "llm-observability",
+    "agent-memory",
 ]
 
 [project.scripts]
@@ -29,6 +30,7 @@ ann-vector-search-library = { git = "https://github.com/adeoluo/ann-vector-searc
 constrained-generation-library = { git = "https://github.com/adeoluo/constrained-generation-library" }
 evaluation-harness = { git = "https://github.com/adeoluo/evaluation-harness" }
 llm-observability = { git = "https://github.com/adeoluo/llm-observability" }
+agent-memory = { git = "https://github.com/adeoluo/agent-memory" }
 
 [dependency-groups]
 dev = [

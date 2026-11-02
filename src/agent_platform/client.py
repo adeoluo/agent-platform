@@ -56,8 +56,16 @@ class Client:
         result: dict[str, Any] = self._ok("POST", "/v1/ingest", {"documents": documents})
         return result
 
-    def ask(self, question: str, *, response_schema: dict[str, Any] | None = None) -> Any:
+    def ask(
+        self,
+        question: str,
+        *,
+        response_schema: dict[str, Any] | None = None,
+        session_id: str | None = None,
+    ) -> Any:
         body: dict[str, Any] = {"question": question}
+        if session_id is not None:
+            body["session_id"] = session_id
         if response_schema is not None:
             body["response_schema"] = response_schema
         return self._ok("POST", "/v1/ask", body)
@@ -76,6 +84,18 @@ class Client:
             raise APIError(error.code, _decode(error.read(), error.headers)) from None
         with response:
             yield from parse_sse(response)
+
+    def remember(self, text: str, *, session_id: str | None = None) -> Any:
+        body: dict[str, Any] = {"text": text}
+        if session_id is not None:
+            body["session_id"] = session_id
+        return self._ok("POST", "/v1/memory", body)
+
+    def recall(self, query: str, *, k: int = 5) -> Any:
+        return self._ok("POST", "/v1/memory/recall", {"query": query, "k": k})
+
+    def session(self, session_id: str) -> Any:
+        return self._ok("GET", f"/v1/sessions/{session_id}")
 
     def submit_job(self, questions: list[str], *, step_delay_seconds: float = 0.0) -> Any:
         return self._ok(

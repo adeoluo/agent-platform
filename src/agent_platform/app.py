@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 from llm_gateway import Provider, TenantRateLimiter
 
@@ -12,11 +13,17 @@ from agent_platform.config import Settings
 from agent_platform.db import Database
 from agent_platform.jobs import JobStore
 from agent_platform.knowledge import KnowledgeBase
+from agent_platform.memory import TenantMemory
 from agent_platform.metrics import Metrics
 from agent_platform.model import TenantGateways
 from agent_platform.providers import build_provider
 from agent_platform.tracing import TraceStore
 from agent_platform.worker import JobWorker
+
+
+def memory_path(db_path: Path) -> Path:
+    """Conversation memory lives next to the platform database, in its own file."""
+    return db_path.with_name(db_path.stem + ".memory.db")
 
 
 class Platform:
@@ -30,7 +37,8 @@ class Platform:
         self.keys = KeyStore(self.db, pepper=self.settings.key_pepper)
         self.knowledge = KnowledgeBase(self.db)
         self.gateways = TenantGateways(provider or build_provider())
-        self.runtime = AgentRuntime(self.knowledge, self.gateways)
+        self.memory = TenantMemory(memory_path(self.settings.db_path))
+        self.runtime = AgentRuntime(self.knowledge, self.gateways, memory=self.memory)
         self.jobs = JobStore(self.db, max_attempts=self.settings.max_attempts)
         self.traces = TraceStore(self.db)
         self.metrics = Metrics()
@@ -56,4 +64,5 @@ class Platform:
         )
 
     def close(self) -> None:
+        self.memory.close()
         self.db.close()
