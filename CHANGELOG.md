@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
+## [0.3.0] 2026-11-02
+
+### Features
+
+- **client:** TypeScript client with streaming, job polling and typed errors
+
+### Documentation
+
+- TypeScript client in README and diagram
+
 ## [0.2.0] 2026-11-02
 
 ### Features
