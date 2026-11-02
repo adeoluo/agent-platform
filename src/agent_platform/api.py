@@ -32,6 +32,7 @@ from agent_platform.agent import EventSink, normalize_question
 from agent_platform.app import Platform
 from agent_platform.auth import AuthError, Principal
 from agent_platform.knowledge import parse_documents
+from agent_platform.memory import validate_session_id
 from agent_platform.model import GatewayBlockedError
 from agent_platform.orchestration import validate_job
 from agent_platform.providers import ProviderRequestError
@@ -90,6 +91,15 @@ def handle_ingest(
     return Response(200, {"ingested": result.documents, "kb_version": result.kb_version})
 
 
+def _session(body: dict[str, Any]) -> str | None:
+    if body.get("session_id") is None:
+        return None
+    try:
+        return validate_session_id(body["session_id"])
+    except ValueError as error:
+        raise HTTPError(400, "invalid_request", str(error)) from None
+
+
 def _ask_inputs(body: dict[str, Any]) -> tuple[str, Any]:
     question = _require_json(body, "question")
     if not isinstance(question, str):
@@ -114,11 +124,17 @@ def _run_ask(
     schema: Any,
     tracer: Tracer,
     on_event: EventSink | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the agent and map every failure mode to an ``HTTPError``."""
     try:
         result = platform.runtime.ask(
-            principal.tenant, question, tracer=tracer, schema=schema, on_event=on_event
+            principal.tenant,
+            question,
+            tracer=tracer,
+            schema=schema,
+            on_event=on_event,
+            session_id=session_id,
         )
     except ValueError as error:
         raise HTTPError(400, "invalid_request", str(error)) from None
@@ -158,23 +174,67 @@ def handle_ask(
     platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
 ) -> Response:
     question, schema = _ask_inputs(body)
-    return Response(200, _run_ask(platform, principal, question, schema, tracer))
+    session_id = _session(body)
+    result = _run_ask(platform, principal, question, schema, tracer, session_id=session_id)
+    if session_id is not None:
+        result["session_id"] = session_id
+    return Response(200, result)
 
 
 def handle_ask_stream(
     platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
 ) -> Response:
     question, schema = _ask_inputs(body)
+    session_id = _session(body)
 
     def run(emit: EventSink) -> None:
         try:
-            result = _run_ask(platform, principal, question, schema, tracer, on_event=emit)
+            result = _run_ask(
+                platform, principal, question, schema, tracer, on_event=emit, session_id=session_id
+            )
         except HTTPError as error:
             emit("error", {"status": error.status, "error": error.code, "message": error.message})
             return
         emit("answer", result)
 
     return Response(200, None, stream=run)
+
+
+def handle_remember(
+    platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
+) -> Response:
+    text = _require_json(body, "text")
+    if not isinstance(text, str) or not text.strip() or len(text) > 4000:
+        raise HTTPError(400, "invalid_request", "'text' must be a string of 1-4000 characters")
+    session_id = _session(body) or "notes"
+    with tracer.span("memory.remember", session_id=session_id):
+        stored = platform.memory.remember(principal.tenant, text, session_id=session_id)
+    return Response(201, stored)
+
+
+def handle_recall(
+    platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
+) -> Response:
+    query = _require_json(body, "query")
+    k = body.get("k", 5)
+    if not isinstance(query, str) or not query.strip():
+        raise HTTPError(400, "invalid_request", "'query' must be a non-empty string")
+    if not isinstance(k, int) or not 1 <= k <= 20:
+        raise HTTPError(400, "invalid_request", "'k' must be an integer from 1 to 20")
+    with tracer.span("memory.recall", k=k) as span:
+        hits = platform.memory.recall(principal.tenant, query, k)
+        span.set_attribute("results", len(hits))
+    return Response(200, {"memories": [h.to_dict() for h in hits]})
+
+
+def handle_get_session(
+    platform: Platform, principal: Principal, _: dict[str, Any], session_id: str, tracer: Tracer
+) -> Response:
+    with tracer.span("memory.session"):
+        turns = platform.memory.session(principal.tenant, session_id)
+    if not turns:
+        raise HTTPError(404, "not_found", "session not found")
+    return Response(200, {"session_id": session_id, "turns": turns})
 
 
 def handle_submit_job(
@@ -230,6 +290,9 @@ ROUTES: list[tuple[str, re.Pattern[str], str, Handler]] = [
     ("POST", re.compile(r"^/v1/ingest$"), "/v1/ingest", handle_ingest),
     ("POST", re.compile(r"^/v1/ask$"), "/v1/ask", handle_ask),
     ("POST", re.compile(r"^/v1/ask/stream$"), "/v1/ask/stream", handle_ask_stream),
+    ("POST", re.compile(r"^/v1/memory$"), "/v1/memory", handle_remember),
+    ("POST", re.compile(r"^/v1/memory/recall$"), "/v1/memory/recall", handle_recall),
+    ("GET", re.compile(rf"^/v1/sessions/{_ID}$"), "/v1/sessions/{id}", handle_get_session),
     ("POST", re.compile(r"^/v1/jobs$"), "/v1/jobs", handle_submit_job),
     ("GET", re.compile(rf"^/v1/jobs/{_ID}$"), "/v1/jobs/{id}", handle_get_job),
     ("GET", re.compile(rf"^/v1/traces/{_ID}$"), "/v1/traces/{id}", handle_get_trace),
