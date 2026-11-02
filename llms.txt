@@ -1,0 +1,43 @@
+# Agent Platform
+
+> An authenticated, multi-tenant AI service that answers questions from each tenant's own documents and runs multi-step research jobs that survive worker crashes.
+
+Languages: Python. License: MIT. Source: https://github.com/adeoluo/agent-platform
+
+## Docs
+
+- [README](https://github.com/adeoluo/agent-platform/blob/main/README.md): motivation, architecture, results, quickstart, usage, design decisions, testing, responsible ai, limitations, roadmap
+- [AGENTS.md](https://github.com/adeoluo/agent-platform/blob/main/AGENTS.md): layout, commands and conventions for changing the code
+- [Architecture diagram](https://github.com/adeoluo/agent-platform/blob/main/docs/architecture/architecture.mmd): Mermaid source of the component diagram
+- [Architecture](https://github.com/adeoluo/agent-platform/blob/main/docs/ARCHITECTURE.md)
+- [ADR 0001: SQLite job leases with fencing tokens](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0001-sqlite-leases-with-fencing-tokens.md)
+- [ADR 0002: Hashed API keys with a server-side pepper](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0002-hashed-api-keys.md)
+- [ADR 0003: Tenant isolation by construction](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0003-tenant-isolation.md)
+- [ADR 0004: A deterministic policy provider behind the real gateway](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0004-offline-policy-model-behind-the-gateway.md)
+- [ADR 0005: Compose existing libraries through thin adapters](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0005-composing-libraries-with-adapters.md)
+- [Changelog](https://github.com/adeoluo/agent-platform/blob/main/CHANGELOG.md): release history
+
+## Source
+
+- [src/agent_platform/__init__.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/__init__.py): Agent platform: an authenticated, multi-tenant AI service composed from small libraries.
+- [src/agent_platform/agent.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/agent.py): The agent runtime: one place that answers a tenant's question.
+- [src/agent_platform/api.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/api.py): The HTTP API: a threaded standard-library server in front of the platform.
+- [src/agent_platform/app.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/app.py): The composition root: one object that wires every component to one database.
+- [src/agent_platform/auth.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/auth.py): API keys: issuance, hashed storage, verification, and revocation.
+- [src/agent_platform/cli.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/cli.py): Command-line interface: ``agent-platform <command>``.
+- [src/agent_platform/client.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/client.py): A minimal standard-library HTTP client for the platform API.
+- [src/agent_platform/config.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/config.py): Runtime settings, read from explicit arguments or ``AGENT_PLATFORM_*`` variables.
+- [src/agent_platform/corpus.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/corpus.py): A small fixed corpus and question set used by the demo, the eval suite, and tests.
+- [src/agent_platform/db.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/db.py): SQLite storage: schema, per-thread connections, and explicit write transactions.
+- [src/agent_platform/demo.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/demo.py): ``agent-platform demo``: an end-to-end scenario on a fresh local database.
+- [src/agent_platform/evaluation.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/evaluation.py): The platform eval suite, built on ``evaluation_harness``.
+- [src/agent_platform/jobs.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/jobs.py): Durable job storage: submission, lease-based claiming, checkpoints, and a step ledger.
+- [src/agent_platform/knowledge.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/knowledge.py): Per-tenant knowledge bases: durable documents and cached hybrid retrievers.
+- [src/agent_platform/metrics.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/metrics.py): A small thread-safe metrics registry rendered in the Prometheus text format.
+- [src/agent_platform/model.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/model.py): The language-model path: a deterministic offline provider behind the safety gateway.
+- [src/agent_platform/orchestration.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/orchestration.py): Multi-agent jobs built on ``multi_agent_orchestrator``.
+- [src/agent_platform/processes.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/processes.py): Helpers for running workers as separate operating-system processes.
+- [src/agent_platform/structured.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/structured.py): Structured answers via schema-constrained decoding.
+- [src/agent_platform/tracing.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/tracing.py): Trace persistence on top of ``llm_observability``.
+- [src/agent_platform/vectors.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/vectors.py): A vector retriever: hashed embeddings indexed in an HNSW graph.
+- [src/agent_platform/worker.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/worker.py): The job worker: claim, heartbeat, execute step by step, checkpoint, finish.
