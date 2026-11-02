@@ -8,6 +8,7 @@
   <a href="https://github.com/adeoluo/agent-platform/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/adeoluo/agent-platform/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/adeoluo/agent-platform/releases"><img alt="Release" src="https://img.shields.io/github/v/release/adeoluo/agent-platform"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue">
+  <img alt="TypeScript" src="https://img.shields.io/badge/typescript-client-3178C6">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
@@ -172,6 +173,20 @@ thin adapter over the HTTP API, so the key's tenant, rate limit, gateway, and tr
   "args": ["mcp", "--url", "http://127.0.0.1:8080"],
   "env": {"AGENT_PLATFORM_API_KEY": "ap_..."}
 }}}
+```
+
+### TypeScript client
+
+[`clients/typescript`](clients/typescript/) is a typed client with no runtime dependencies:
+requests, `askStream` as an async iterator over the streamed steps, job polling, and
+`APIError` with the server's error code, trace id, and retryability. Its tests start the
+real Python server and run against it in CI.
+
+```ts
+for await (const { event, data } of client.askStream("How long is the warranty?")) {
+  if (event === "step") console.log(`[${data.index}] ${data.tool}: ${data.input}`);
+  if (event === "answer") console.log(data.answer, data.grounded);
+}
 ```
 
 ### Configuration
@@ -345,7 +360,9 @@ What the suite in `tests/` covers:
   4xx, in-band refusals, abort on a failing sink, the MCP handshake and tools (in process
   and over real stdio), and the `chat` command.
 
-CI (`.github/workflows/ci.yml`) also builds the package and the Docker image.
+CI (`.github/workflows/ci.yml`) also builds the package and the Docker image, and runs the
+TypeScript client's lint, type check, and 14 tests (96% statement coverage) against a real
+server started from this repository.
 
 ## Responsible AI
 
