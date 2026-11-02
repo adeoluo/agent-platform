@@ -6,3 +6,4 @@
 .mypy_cache
 .ruff_cache
 **/__pycache__
+clients/typescript/node_modules

@@ -1,0 +1,34 @@
+[
+  {
+    "id": "refund-policy",
+    "text": "Customers may request a full refund within 30 days of purchase. Refunds are issued to the original payment method within 5 business days. Opened hardware is subject to a 15 percent restocking fee."
+  },
+  {
+    "id": "shipping",
+    "text": "Standard shipping takes 4 to 6 business days within the continental United States. Express shipping arrives in 2 business days and costs 18 dollars. Orders over 75 dollars qualify for free shipping."
+  },
+  {
+    "id": "warranty",
+    "text": "Every Lumen sensor includes a two year limited warranty covering manufacturing defects. The warranty does not cover water damage or physical abuse. Warranty claims require the device serial number."
+  },
+  {
+    "id": "support-hours",
+    "text": "The support team is available Monday through Friday from 8 am to 6 pm Central Time. Priority support customers can reach an on-call engineer 24 hours a day. The average first response time is under 2 hours."
+  },
+  {
+    "id": "security",
+    "text": "All customer data is encrypted at rest with AES-256. Data in transit is protected with TLS 1.3. Access to production systems requires hardware security keys."
+  },
+  {
+    "id": "product-lumen",
+    "text": "The Lumen sensor measures temperature, humidity, and air quality every 60 seconds. The Lumen battery lasts up to 18 months on a single charge. The sensor connects over Wi-Fi or Thread."
+  },
+  {
+    "id": "pricing",
+    "text": "The Starter plan costs 9 dollars per month and supports up to 5 sensors. The Team plan costs 49 dollars per month and supports up to 50 sensors. Enterprise pricing is negotiated annually."
+  },
+  {
+    "id": "data-retention",
+    "text": "Raw sensor readings are retained for 13 months. Aggregated hourly summaries are retained indefinitely. Customers can export their data as CSV at any time."
+  }
+]
