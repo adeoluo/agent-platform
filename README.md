@@ -250,6 +250,16 @@ A response schema is an ordered list of typed properties:
 Supported types are `string`, `integer`, `number`, `boolean`, and `enum`. Known field names
 (`answer`, `source`, `citations`, `grounded`, `confidence`) are filled from the agent result.
 
+### Demos
+
+Recorded from real runs with [vhs](https://github.com/charmbracelet/vhs); each tape is in `docs/demo/`.
+
+The evaluation suite run against an in-process server.
+
+<p align="center">
+  <img src="docs/demo/eval.gif" alt="The evaluation suite run against an in-process server" width="860">
+</p>
+
 ## Design decisions
 
 - **SQLite job leases with fencing tokens.** Durable jobs, exactly-once step recording, and
