@@ -7,7 +7,7 @@ flowchart LR
 
     subgraph Interfaces["Interfaces"]
         direction TB
-        Client([Apps, CLI chat]):::edge
+        Client([Apps, TS client, chat]):::edge
         MCP["MCP server<br/>stdio, 5 tools"]:::edge
         API["HTTP API<br/>ask, SSE stream, jobs"]:::edge
         Auth["KeyStore<br/>hashed API keys"]:::control
