@@ -15,6 +15,8 @@ Languages: Python. License: MIT. Source: https://github.com/adeoluo/agent-platfo
 - [ADR 0003: Tenant isolation by construction](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0003-tenant-isolation.md)
 - [ADR 0004: A deterministic policy provider behind the real gateway](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0004-offline-policy-model-behind-the-gateway.md)
 - [ADR 0005: Compose existing libraries through thin adapters](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0005-composing-libraries-with-adapters.md)
+- [ADR 0006: Stream agent steps over server-sent events, not raw tokens](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0006-streaming-steps-not-tokens.md)
+- [ADR 0007: Hosted providers with classified errors and ordered failover](https://github.com/adeoluo/agent-platform/blob/main/docs/adr/0007-hosted-providers-and-failover.md)
 - [Changelog](https://github.com/adeoluo/agent-platform/blob/main/CHANGELOG.md): release history
 
 ## Source
@@ -33,10 +35,12 @@ Languages: Python. License: MIT. Source: https://github.com/adeoluo/agent-platfo
 - [src/agent_platform/evaluation.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/evaluation.py): The platform eval suite, built on ``evaluation_harness``.
 - [src/agent_platform/jobs.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/jobs.py): Durable job storage: submission, lease-based claiming, checkpoints, and a step ledger.
 - [src/agent_platform/knowledge.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/knowledge.py): Per-tenant knowledge bases: durable documents and cached hybrid retrievers.
+- [src/agent_platform/mcp_server.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/mcp_server.py): An MCP server (stdio transport) that exposes the platform to MCP clients.
 - [src/agent_platform/metrics.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/metrics.py): A small thread-safe metrics registry rendered in the Prometheus text format.
 - [src/agent_platform/model.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/model.py): The language-model path: a deterministic offline provider behind the safety gateway.
 - [src/agent_platform/orchestration.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/orchestration.py): Multi-agent jobs built on ``multi_agent_orchestrator``.
 - [src/agent_platform/processes.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/processes.py): Helpers for running workers as separate operating-system processes.
+- [src/agent_platform/providers.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/providers.py): Hosted model providers (OpenAI, Anthropic) and the factory that selects one.
 - [src/agent_platform/structured.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/structured.py): Structured answers via schema-constrained decoding.
 - [src/agent_platform/tracing.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/tracing.py): Trace persistence on top of ``llm_observability``.
 - [src/agent_platform/vectors.py](https://github.com/adeoluo/agent-platform/blob/main/src/agent_platform/vectors.py): A vector retriever: hashed embeddings indexed in an HNSW graph.

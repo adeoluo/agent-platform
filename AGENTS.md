@@ -31,10 +31,12 @@ Key modules:
 - `src/agent_platform/evaluation.py`: The platform eval suite, built on ``evaluation_harness``.
 - `src/agent_platform/jobs.py`: Durable job storage: submission, lease-based claiming, checkpoints, and a step ledger.
 - `src/agent_platform/knowledge.py`: Per-tenant knowledge bases: durable documents and cached hybrid retrievers.
+- `src/agent_platform/mcp_server.py`: An MCP server (stdio transport) that exposes the platform to MCP clients.
 - `src/agent_platform/metrics.py`: A small thread-safe metrics registry rendered in the Prometheus text format.
 - `src/agent_platform/model.py`: The language-model path: a deterministic offline provider behind the safety gateway.
 - `src/agent_platform/orchestration.py`: Multi-agent jobs built on ``multi_agent_orchestrator``.
 - `src/agent_platform/processes.py`: Helpers for running workers as separate operating-system processes.
+- `src/agent_platform/providers.py`: Hosted model providers (OpenAI, Anthropic) and the factory that selects one.
 - `src/agent_platform/structured.py`: Structured answers via schema-constrained decoding.
 - `src/agent_platform/tracing.py`: Trace persistence on top of ``llm_observability``.
 - `src/agent_platform/vectors.py`: A vector retriever: hashed embeddings indexed in an HNSW graph.
