@@ -4,11 +4,19 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
-## [0.3.1] 2026-11-02
+## [0.4.0] 2026-11-02
+
+### Features
+
+- Per-tenant conversation memory with cited recall (#1)
 
 ### Documentation
 
 - Recorded terminal demo of a real run, with its vhs tape
+
+### Maintenance
+
+- Classify squash merges in the changelog by the commits they contain
 
 ## [0.3.0] 2026-11-02
 
