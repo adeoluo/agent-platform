@@ -18,11 +18,11 @@
 
 An authenticated, multi-tenant AI service that answers questions from each tenant's own
 documents and runs multi-step research jobs that survive worker crashes. It is the
-integration of eight libraries I wrote separately (a safety gateway, a ReAct agent, a
+integration of nine libraries I wrote separately (a safety gateway, a ReAct agent, a
 multi-agent orchestrator, hybrid retrieval, an HNSW index, constrained decoding, an
-evaluation harness, and a tracing library) into one system with an HTTP API, SQLite-backed
+evaluation harness, a tracing library, and long-term memory) into one system with an HTTP API, SQLite-backed
 durable state, per-tenant isolation, tracing, metrics, and an evaluation suite. Everything
-runs offline and deterministically with the standard library plus those eight packages.
+runs offline and deterministically with the standard library plus those nine packages.
 
 ## Architecture
 
@@ -221,8 +221,11 @@ are JSON objects with `error` and `message`. Every authenticated response carrie
 | `GET /ready` | no | Readiness: 200 when the database answers, else 503 |
 | `GET /metrics` | no | Prometheus text: requests, latency histograms, auth failures, rate limiting, gateway counters, job counts |
 | `POST /v1/ingest` | yes | `{"documents": [{"id", "text", "metadata"?}]}`. Upserts into the caller's knowledge base. Returns `{"ingested", "kb_version"}` |
-| `POST /v1/ask` | yes | `{"question", "response_schema"?}`. Returns `answer`, `citations`, `grounded`, `sources`, `steps`, `model_calls`, `cached_calls`, `trace_id`, and `structured` when a schema is given |
+| `POST /v1/ask` | yes | `{"question", "response_schema"?, "session_id"?}`. With a `session_id`, the agent can also cite the tenant's memories (`[memory:<id>]`) and the turn is recorded. Returns `answer`, `citations`, `grounded`, `sources`, `steps`, `model_calls`, `cached_calls`, `trace_id`, and `structured` when a schema is given |
 | `POST /v1/ask/stream` | yes | Same input as `/v1/ask`. Server-sent events: `start`, `step`, `observation`, then `answer` (the `/v1/ask` body) or `error`, then `done` |
+| `POST /v1/memory` | yes | `{"text", "session_id"?}`. Stores a memory for the caller's tenant; returns the episode id and any facts extracted from it |
+| `POST /v1/memory/recall` | yes | `{"query", "k"?}`. The tenant's best memories, each with a score explanation |
+| `GET /v1/sessions/{id}` | yes | The questions and answers recorded in one session, oldest first |
 | `POST /v1/jobs` | yes | `{"kind": "research", "questions": [...], "step_delay_seconds"?}`. Returns 202 with `job_id` and the job's `trace_id` |
 | `GET /v1/jobs/{id}` | yes | Status, attempts, steps completed and total, the step ledger (with the worker that recorded each step), result, error |
 | `GET /v1/traces/{id}` | yes | Spans in the `llm_observability` export format plus a rendered tree |
@@ -259,8 +262,12 @@ Supported types are `string`, `integer`, `number`, `boolean`, and `enum`. Known 
   ([ADR 0003](docs/adr/0003-tenant-isolation.md))
 - **A deterministic policy provider behind the real gateway.** Keeps the full request path
   offline and reproducible. ([ADR 0004](docs/adr/0004-offline-policy-model-behind-the-gateway.md))
-- **Composing existing libraries through thin adapters.** The eight libraries are used
+- **Composing existing libraries through thin adapters.** The nine libraries are used
   unmodified. ([ADR 0005](docs/adr/0005-composing-libraries-with-adapters.md))
+- **Conversation memory as cited evidence.** Each tenant has an `agent-memory` namespace in
+  its own SQLite file. In a session, recalled memories enter the search results as
+  `[memory:<id>]` passages, so an answer from memory is cited and grounding-checked like an
+  answer from a document, and each turn is written back with fact extraction.
 - **Stream steps, not tokens.** Progress events arrive as the agent works, but answer text
   is released only after the output policy has seen all of it, and a client disconnect
   stops the run. ([ADR 0006](docs/adr/0006-streaming-steps-not-tokens.md))
@@ -334,7 +341,7 @@ make bench-load bench-recovery
 ```
 
 CI runs on Python 3.11 and 3.12: format check, lint, `mypy src` in strict mode, and
-`pytest -m "not slow"` with an 80% coverage gate. The suite has 127 tests (126 in CI, 95%
+`pytest -m "not slow"` with an 80% coverage gate. The suite has 133 tests (132 in CI, 95%
 line coverage) and runs in under 40 seconds locally, including the cross-process crash-recovery and
 four-process concurrency tests. Test data is written under `.pytest-work/` in the
 repository rather than a system temporary directory.
@@ -362,6 +369,9 @@ What the suite in `tests/` covers:
   API: request shape, retryable versus rejected errors, failover order, HTTP status
   mapping, and full platform runs driven by a scripted hosted model, including a fabricated
   citation that is correctly marked not grounded.
+- `test_memory.py`: answers from memory are cited and grounded only within a session,
+  sessions record both turns, recall explains each result, tenants cannot see each other's
+  memories or sessions, and inputs are validated.
 - `test_streaming_mcp.py`: server-sent event order and parity with `/v1/ask`, pre-stream
   4xx, in-band refusals, abort on a failing sink, the MCP handshake and tools (in process
   and over real stdio), and the `chat` command.
@@ -407,7 +417,6 @@ server started from this repository.
 * Job cancellation and per-tenant job quotas.
 * Run the eval suite against hosted providers and publish the comparison with the
   extractive policy.
-* Per-session conversation memory, composing the `agent-memory` library.
 * Worker metrics endpoint and trace export in OpenTelemetry format.
 * Key scopes and expiry.
 
