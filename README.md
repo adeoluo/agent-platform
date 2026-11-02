@@ -260,6 +260,12 @@ The evaluation suite run against an in-process server.
   <img src="docs/demo/eval.gif" alt="The evaluation suite run against an in-process server" width="860">
 </p>
 
+The CLI against a running server: an answer with citations, then a durable research job.
+
+<p align="center">
+  <img src="docs/demo/api.gif" alt="The CLI against a running server: an answer with citations, then a durable research job" width="860">
+</p>
+
 ## Design decisions
 
 - **SQLite job leases with fencing tokens.** Durable jobs, exactly-once step recording, and
