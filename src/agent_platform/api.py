@@ -4,10 +4,17 @@ Every authenticated request follows the same path: authenticate the API key, res
 tenant from the key row, apply the tenant's rate limit, open a trace, run the handler, and
 persist the trace under the tenant. Request bodies are bounded, errors are JSON, and
 ``/metrics`` exposes request, auth, rate-limit, gateway, and job counters.
+
+``POST /v1/ask/stream`` answers the same question as ``POST /v1/ask`` but sends the agent's
+steps as server-sent events while it works. Input is validated before the stream opens, so
+bad requests still get a normal 4xx. The stream is written inside the request's root span,
+so the persisted trace covers the whole run; if the client disconnects, the next write fails
+and the agent run is aborted instead of finishing for nobody.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import threading
@@ -17,14 +24,20 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from llm_gateway import ProviderError
 from llm_observability import Tracer
 
+from agent_platform import __version__
+from agent_platform.agent import EventSink, normalize_question
 from agent_platform.app import Platform
 from agent_platform.auth import AuthError, Principal
 from agent_platform.knowledge import parse_documents
 from agent_platform.model import GatewayBlockedError
 from agent_platform.orchestration import validate_job
+from agent_platform.providers import ProviderRequestError
 from agent_platform.structured import parse_schema
+
+Stream = Callable[[EventSink], None]
 
 
 @dataclass
@@ -33,6 +46,12 @@ class Response:
     payload: Any
     headers: dict[str, str] = field(default_factory=dict)
     content_type: str = "application/json"
+    stream: Stream | None = None
+    sent: bool = False
+
+
+class ClientDisconnectedError(Exception):
+    """The client closed the connection while a stream was being written."""
 
 
 class HTTPError(Exception):
@@ -71,20 +90,36 @@ def handle_ingest(
     return Response(200, {"ingested": result.documents, "kb_version": result.kb_version})
 
 
-def handle_ask(
-    platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
-) -> Response:
+def _ask_inputs(body: dict[str, Any]) -> tuple[str, Any]:
     question = _require_json(body, "question")
     if not isinstance(question, str):
         raise HTTPError(400, "invalid_request", "'question' must be a string")
+    try:
+        normalize_question(question)
+    except ValueError as error:
+        raise HTTPError(400, "invalid_request", str(error)) from None
     schema = None
     if body.get("response_schema") is not None:
         try:
             schema = parse_schema(body["response_schema"])
         except ValueError as error:
             raise HTTPError(400, "invalid_schema", str(error)) from None
+    return question, schema
+
+
+def _run_ask(
+    platform: Platform,
+    principal: Principal,
+    question: str,
+    schema: Any,
+    tracer: Tracer,
+    on_event: EventSink | None = None,
+) -> dict[str, Any]:
+    """Run the agent and map every failure mode to an ``HTTPError``."""
     try:
-        result = platform.runtime.ask(principal.tenant, question, tracer=tracer, schema=schema)
+        result = platform.runtime.ask(
+            principal.tenant, question, tracer=tracer, schema=schema, on_event=on_event
+        )
     except ValueError as error:
         raise HTTPError(400, "invalid_request", str(error)) from None
     except GatewayBlockedError as error:
@@ -96,13 +131,50 @@ def handle_ask(
         )
         reasons = ", ".join(error.reasons)
         raise HTTPError(422, error.status, f"refused by gateway: {reasons}") from None
+    except ProviderRequestError as error:
+        _count_provider_error(platform, "rejected")
+        raise HTTPError(502, "provider_rejected", str(error)) from None
+    except ProviderError as error:
+        _count_provider_error(platform, "unavailable")
+        raise HTTPError(503, "provider_unavailable", str(error), **{"Retry-After": "5"}) from None
     platform.metrics.inc(
         "agent_platform_answers_total",
         "Answers produced, by tenant and whether they were grounded.",
         tenant=principal.tenant,
         grounded=str(result.grounded).lower(),
     )
-    return Response(200, result.to_dict())
+    return result.to_dict()
+
+
+def _count_provider_error(platform: Platform, kind: str) -> None:
+    platform.metrics.inc(
+        "agent_platform_provider_errors_total",
+        "Model provider failures that reached the caller, by kind.",
+        kind=kind,
+    )
+
+
+def handle_ask(
+    platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
+) -> Response:
+    question, schema = _ask_inputs(body)
+    return Response(200, _run_ask(platform, principal, question, schema, tracer))
+
+
+def handle_ask_stream(
+    platform: Platform, principal: Principal, body: dict[str, Any], _: str, tracer: Tracer
+) -> Response:
+    question, schema = _ask_inputs(body)
+
+    def run(emit: EventSink) -> None:
+        try:
+            result = _run_ask(platform, principal, question, schema, tracer, on_event=emit)
+        except HTTPError as error:
+            emit("error", {"status": error.status, "error": error.code, "message": error.message})
+            return
+        emit("answer", result)
+
+    return Response(200, None, stream=run)
 
 
 def handle_submit_job(
@@ -157,6 +229,7 @@ _ID = r"([A-Za-z0-9_.-]{1,128})"
 ROUTES: list[tuple[str, re.Pattern[str], str, Handler]] = [
     ("POST", re.compile(r"^/v1/ingest$"), "/v1/ingest", handle_ingest),
     ("POST", re.compile(r"^/v1/ask$"), "/v1/ask", handle_ask),
+    ("POST", re.compile(r"^/v1/ask/stream$"), "/v1/ask/stream", handle_ask_stream),
     ("POST", re.compile(r"^/v1/jobs$"), "/v1/jobs", handle_submit_job),
     ("GET", re.compile(rf"^/v1/jobs/{_ID}$"), "/v1/jobs/{id}", handle_get_job),
     ("GET", re.compile(rf"^/v1/traces/{_ID}$"), "/v1/traces/{id}", handle_get_trace),
@@ -187,7 +260,7 @@ class PlatformHTTPServer(ThreadingHTTPServer):
 class _RequestHandler(BaseHTTPRequestHandler):
     server: PlatformHTTPServer
     protocol_version = "HTTP/1.1"
-    server_version = "agent-platform/0.1"
+    server_version = f"agent-platform/{__version__}"
 
     def log_message(self, format: str, *args: Any) -> None:
         return None
@@ -223,7 +296,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 self.close_connection = True
         except Exception as error:  # pragma: no cover - defensive
             response = Response(500, {"error": "internal", "message": type(error).__name__})
-        self._send(response)
+        if not response.sent:
+            self._send(response)
         elapsed = time.perf_counter() - start
         platform.metrics.inc(
             "agent_platform_http_requests_total",
@@ -319,12 +393,54 @@ class _RequestHandler(BaseHTTPRequestHandler):
                     error.headers["X-Trace-Id"] = trace_id
                     raise
                 root.set_attribute("status", response.status)
+                if response.stream is not None:
+                    root.set_attribute("streamed", True)
+                    completed = self._send_stream(platform, response, trace_id)
+                    root.set_attribute("stream_completed", completed)
         finally:
             platform.traces.save_tracer(principal.tenant, tracer)
         response.headers["X-Trace-Id"] = trace_id
         if isinstance(response.payload, dict) and template == "/v1/ask":
             response.payload["trace_id"] = trace_id
         return response
+
+    def _send_stream(self, platform: Platform, response: Response, trace_id: str) -> bool:
+        """Write ``response.stream`` as server-sent events; return False if the client left."""
+        assert response.stream is not None
+        response.sent = True
+        self.close_connection = True
+        self.send_response(response.status)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.send_header("X-Trace-Id", trace_id)
+        self.end_headers()
+
+        def emit(event: str, data: dict[str, Any]) -> None:
+            if event in ("answer", "error"):
+                data = {**data, "trace_id": trace_id}
+            chunk = f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
+            try:
+                self.wfile.write(chunk)
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError) as error:
+                raise ClientDisconnectedError from error
+
+        try:
+            emit("start", {"trace_id": trace_id})
+            response.stream(emit)
+            emit("done", {})
+        except ClientDisconnectedError:
+            platform.metrics.inc(
+                "agent_platform_stream_disconnects_total",
+                "Streams aborted because the client disconnected.",
+            )
+            return False
+        except Exception as error:  # headers are sent; report in-band, never a second response
+            with contextlib.suppress(ClientDisconnectedError):
+                emit("error", {"status": 500, "error": "internal", "message": type(error).__name__})
+            return False
+        return True
 
     def _read_json(self, platform: Platform) -> dict[str, Any]:
         length_header = self.headers.get("Content-Length")
