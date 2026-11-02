@@ -152,6 +152,55 @@ def cmd_ask(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_event(event: str, data: dict[str, Any], out: Any) -> None:
+    if event == "step":
+        print(f"  [{data['index']}] {data['tool']}: {data['input']}", file=out)
+    elif event == "observation":
+        preview = data["observation"]
+        print(f"      {preview[:160]}{'...' if len(preview) > 160 else ''}", file=out)
+    elif event == "answer":
+        flag = "grounded" if data["grounded"] else "not grounded"
+        print(f"\n{data['answer']}\n  ({flag}; trace {data['trace_id']})\n", file=out)
+    elif event == "error":
+        print(f"error {data['status']} {data['error']}: {data['message']}", file=out)
+
+
+def cmd_chat(args: argparse.Namespace) -> int:
+    """Interactive loop over the streaming endpoint; steps print as the agent takes them."""
+    from agent_platform.client import APIError
+
+    client = _client(args)
+    interactive = sys.stdin.isatty()
+    if interactive:
+        print("Ask a question (Ctrl-D to exit).")
+    status = 0
+    while True:
+        if interactive:
+            print("> ", end="", flush=True)
+        line = sys.stdin.readline()
+        if not line:
+            break
+        question = line.strip()
+        if not question:
+            continue
+        try:
+            for event, data in client.ask_stream(question):
+                _render_event(event, data, sys.stdout)
+                if event == "error":
+                    status = 1
+        except APIError as error:
+            print(f"error {error.status}: {error.payload}", file=sys.stderr)
+            status = 1
+    return status
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from agent_platform.mcp_server import serve
+
+    serve(_client(args))
+    return 0
+
+
 def cmd_jobs(args: argparse.Namespace) -> int:
     client = _client(args)
     if args.jobs_command == "submit":
@@ -249,6 +298,14 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("question")
     ask.add_argument("--schema", help="response schema as JSON")
     ask.set_defaults(func=cmd_ask)
+
+    chat = sub.add_parser("chat", help="interactive questions, streaming the agent's steps")
+    add_remote(chat)
+    chat.set_defaults(func=cmd_chat)
+
+    mcp = sub.add_parser("mcp", help="serve the platform to MCP clients over stdio")
+    add_remote(mcp)
+    mcp.set_defaults(func=cmd_mcp)
 
     jobs = sub.add_parser("jobs", help="submit or inspect research jobs")
     jobs_sub = jobs.add_subparsers(dest="jobs_command", required=True)
