@@ -18,7 +18,7 @@
 
 An authenticated, multi-tenant AI service that answers questions from each tenant's own
 documents and runs multi-step research jobs that survive worker crashes. It is the
-integration of nine libraries I wrote separately (a safety gateway, a ReAct agent, a
+integration of nine standalone libraries from this portfolio (a safety gateway, a ReAct agent, a
 multi-agent orchestrator, hybrid retrieval, an HNSW index, constrained decoding, an
 evaluation harness, a tracing library, and long-term memory) into one system with an HTTP API, SQLite-backed
 durable state, per-tenant isolation, tracing, metrics, and an evaluation suite. Everything
