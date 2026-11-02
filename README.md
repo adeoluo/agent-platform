@@ -147,7 +147,32 @@ uv run agent-platform eval                            # eval suite on an in-proc
 ### CLI
 
 The `agent-platform` command provides `demo`, `keys`, `serve`, `worker`, `ingest`, `ask`,
-`jobs`, and `eval` subcommands, as shown in the Quickstart.
+`chat`, `mcp`, `jobs`, and `eval` subcommands.
+
+`chat` reads questions from the terminal and prints each agent step as it streams in:
+
+```text
+$ uv run agent-platform chat
+Ask a question (Ctrl-D to exit).
+> How many days do customers have to request a refund?
+  [1] search_knowledge_base: How many days do customers have to request a refund?
+      [refund-policy] Customers may request a full refund within 30 days of purchase. Refunds are issued to the original payment method within 5 business days. Opened...
+
+Customers may request a full refund within 30 days of purchase. [refund-policy]
+  (grounded; trace trace-bd8b45b34230)
+```
+
+`mcp` serves the platform to MCP clients (Claude Desktop, IDE agents) over stdio with five
+tools: `ask`, `ingest_documents`, `submit_research_job`, `get_job`, and `get_trace`. It is a
+thin adapter over the HTTP API, so the key's tenant, rate limit, gateway, and tracing apply:
+
+```json
+{"mcpServers": {"agent-platform": {
+  "command": "agent-platform",
+  "args": ["mcp", "--url", "http://127.0.0.1:8080"],
+  "env": {"AGENT_PLATFORM_API_KEY": "ap_..."}
+}}}
+```
 
 ### Configuration
 
@@ -155,6 +180,13 @@ Configuration is through `AGENT_PLATFORM_DB`, `AGENT_PLATFORM_HOST`, `AGENT_PLAT
 `AGENT_PLATFORM_KEY_PEPPER`, `AGENT_PLATFORM_RATE_CAPACITY`, `AGENT_PLATFORM_RATE_REFILL`,
 `AGENT_PLATFORM_LEASE_SECONDS`, `AGENT_PLATFORM_POLL_INTERVAL`, and
 `AGENT_PLATFORM_MAX_ATTEMPTS`.
+
+The model is chosen with `AGENT_PLATFORM_PROVIDER`: `offline` (default, the deterministic
+policy), `openai`, `anthropic`, or an ordered failover list such as `anthropic,openai`.
+Hosted providers read `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`, and optionally
+`AGENT_PLATFORM_OPENAI_MODEL`, `AGENT_PLATFORM_ANTHROPIC_MODEL`, `OPENAI_BASE_URL`,
+`ANTHROPIC_BASE_URL`, `AGENT_PLATFORM_PROVIDER_TIMEOUT`, and
+`AGENT_PLATFORM_PROVIDER_ATTEMPTS`.
 
 ### HTTP API
 
@@ -169,6 +201,7 @@ are JSON objects with `error` and `message`. Every authenticated response carrie
 | `GET /metrics` | no | Prometheus text: requests, latency histograms, auth failures, rate limiting, gateway counters, job counts |
 | `POST /v1/ingest` | yes | `{"documents": [{"id", "text", "metadata"?}]}`. Upserts into the caller's knowledge base. Returns `{"ingested", "kb_version"}` |
 | `POST /v1/ask` | yes | `{"question", "response_schema"?}`. Returns `answer`, `citations`, `grounded`, `sources`, `steps`, `model_calls`, `cached_calls`, `trace_id`, and `structured` when a schema is given |
+| `POST /v1/ask/stream` | yes | Same input as `/v1/ask`. Server-sent events: `start`, `step`, `observation`, then `answer` (the `/v1/ask` body) or `error`, then `done` |
 | `POST /v1/jobs` | yes | `{"kind": "research", "questions": [...], "step_delay_seconds"?}`. Returns 202 with `job_id` and the job's `trace_id` |
 | `GET /v1/jobs/{id}` | yes | Status, attempts, steps completed and total, the step ledger (with the worker that recorded each step), result, error |
 | `GET /v1/traces/{id}` | yes | Spans in the `llm_observability` export format plus a rendered tree |
@@ -176,7 +209,9 @@ are JSON objects with `error` and `message`. Every authenticated response carrie
 Status codes: 400 invalid input, 401 missing, malformed, invalid, or revoked key, 404 unknown
 route or an id that is not the caller's, 405 wrong method, 411 missing length, 413 body over
 2 MB, 422 refused by the gateway (prompt injection or output policy), 429 tenant rate limit
-(with `Retry-After`).
+(with `Retry-After`), 502 the model provider rejected the request, 503 every configured
+provider failed after retries (with `Retry-After`). On the streaming endpoint, failures
+after the stream opens arrive as an `error` event with the same status.
 
 A response schema is an ordered list of typed properties:
 
@@ -205,6 +240,12 @@ Supported types are `string`, `integer`, `number`, `boolean`, and `enum`. Known 
   offline and reproducible. ([ADR 0004](docs/adr/0004-offline-policy-model-behind-the-gateway.md))
 - **Composing existing libraries through thin adapters.** The eight libraries are used
   unmodified. ([ADR 0005](docs/adr/0005-composing-libraries-with-adapters.md))
+- **Stream steps, not tokens.** Progress events arrive as the agent works, but answer text
+  is released only after the output policy has seen all of it, and a client disconnect
+  stops the run. ([ADR 0006](docs/adr/0006-streaming-steps-not-tokens.md))
+- **Hosted providers with classified errors and ordered failover.** Rate limits and
+  outages are retried and fail over; rejected requests are not.
+  ([ADR 0007](docs/adr/0007-hosted-providers-and-failover.md))
 
 ### Durability and recovery
 
@@ -272,8 +313,8 @@ make bench-load bench-recovery
 ```
 
 CI runs on Python 3.11 and 3.12: format check, lint, `mypy src` in strict mode, and
-`pytest -m "not slow"` with an 80% coverage gate. The suite has 100 tests (99 in CI) and
-runs in under 30 seconds locally, including the cross-process crash-recovery and
+`pytest -m "not slow"` with an 80% coverage gate. The suite has 127 tests (126 in CI, 95%
+line coverage) and runs in under 40 seconds locally, including the cross-process crash-recovery and
 four-process concurrency tests. Test data is written under `.pytest-work/` in the
 repository rather than a system temporary directory.
 
@@ -296,6 +337,13 @@ What the suite in `tests/` covers:
 - `test_vectors_metrics_tracing.py`: hashed embeddings and the HNSW retriever, Prometheus
   metrics, tenant-scoped traces, settings, and the database handle.
 - `test_eval_cli_demo.py`: the evaluation suite, the CLI, and the demo.
+- `test_providers.py`: OpenAI and Anthropic providers against a local fake of each HTTP
+  API: request shape, retryable versus rejected errors, failover order, HTTP status
+  mapping, and full platform runs driven by a scripted hosted model, including a fabricated
+  citation that is correctly marked not grounded.
+- `test_streaming_mcp.py`: server-sent event order and parity with `/v1/ask`, pre-stream
+  4xx, in-band refusals, abort on a failing sink, the MCP handshake and tools (in process
+  and over real stdio), and the `chat` command.
 
 CI (`.github/workflows/ci.yml`) also builds the package and the Docker image.
 
@@ -313,8 +361,12 @@ CI (`.github/workflows/ci.yml`) also builds the package and the Docker image.
 
 ## Limitations
 
-* The model is a deterministic extractive policy, not a language model. Swapping in a hosted
-  provider is a one-line change in `TenantGateways`, but it has not been evaluated here.
+* The default model is a deterministic extractive policy. OpenAI and Anthropic providers
+  are implemented and tested against local fakes of their APIs, but the eval suite has not
+  been run against hosted models here, so no hosted accuracy numbers are reported.
+* Gateway calls are serialized per tenant (the gateway cache is not thread safe), so with
+  a hosted model one tenant's concurrent requests queue behind each other's model latency.
+* Streaming sends steps and the final answer, not answer tokens (see ADR 0006).
 * The hashed embedding used for HNSW is lexical, not semantic, so paraphrases with no shared
   words or character trigrams are not matched.
 * Indexes are in memory per process and rebuilt from SQLite when a tenant's documents
@@ -330,8 +382,9 @@ CI (`.github/workflows/ci.yml`) also builds the package and the Docker image.
 * PostgreSQL backend for jobs with `FOR UPDATE SKIP LOCKED`, keeping the same fencing
   protocol and tests.
 * Job cancellation and per-tenant job quotas.
-* A hosted model provider behind the gateway with an evaluation comparison against the
+* Run the eval suite against hosted providers and publish the comparison with the
   extractive policy.
+* Per-session conversation memory, composing the `agent-memory` library.
 * Worker metrics endpoint and trace export in OpenTelemetry format.
 * Key scopes and expiry.
 

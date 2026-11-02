@@ -17,4 +17,8 @@ with `make cut-release`.
 
 - Run CodeQL on main and on a weekly schedule only
 
+### Maintenance
+
+- Add release automation, AGENTS.md, llms.txt and contributor docs
+
 ## [0.1.0] 2026-11-02

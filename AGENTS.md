@@ -11,6 +11,7 @@ An authenticated, multi-tenant AI service that answers questions from each tenan
 
 - `benchmarks/`: benchmark scripts and recorded results
 - `docs/`: documentation, architecture diagram source and render, design records
+- `scripts/`: maintenance scripts (release, assets, data)
 - `src/`: library and service source
 - `tests/`: test suite
 

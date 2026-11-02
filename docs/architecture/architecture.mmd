@@ -5,13 +5,15 @@ flowchart LR
     classDef control  fill:#0EA5E9,stroke:#1E293B,color:#ffffff,stroke-width:1px;
     classDef obs      fill:#CBD5E1,stroke:#1E293B,color:#1E293B,stroke-width:1px;
 
-    subgraph Interfaces["Interfaces (HTTP API)"]
+    subgraph Interfaces["Interfaces"]
         direction TB
-        Client([Client or CLI]):::edge
-        API["HTTP API<br/>ask, ingest, jobs"]:::edge
+        Client([Apps, CLI chat]):::edge
+        MCP["MCP server<br/>stdio, 5 tools"]:::edge
+        API["HTTP API<br/>ask, SSE stream, jobs"]:::edge
         Auth["KeyStore<br/>hashed API keys"]:::control
         Limit["Rate limiter<br/>per tenant"]:::control
-        Client --> API --> Auth --> Limit
+        Client --> API
+        MCP --> API --> Auth --> Limit
     end
 
     subgraph Jobs["Durable jobs"]
@@ -26,9 +28,10 @@ flowchart LR
         Agent["AgentRuntime.ask<br/>ReAct loop"]:::core
         Tools["Tenant tools<br/>search, calculator"]:::core
         Gateway["llm-gateway<br/>screen, redact, cache"]:::control
-        Policy[["Policy provider<br/>offline model"]]:::edge
+        Failover["Failover chain<br/>retry, backoff"]:::control
+        Providers[["Providers<br/>offline, OpenAI, Anthropic"]]:::edge
         Structured["Constrained JSON<br/>schema automaton"]:::control
-        Agent --> Gateway --> Policy ~~~ Tools ~~~ Structured
+        Agent --> Gateway --> Failover --> Providers ~~~ Tools ~~~ Structured
     end
 
     subgraph State["State (SQLite, WAL)"]
