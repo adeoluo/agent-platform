@@ -1,0 +1,18 @@
+stateDiagram-v2
+    direction TB
+    classDef edge     fill:#F59E0B,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+    classDef core     fill:#6366F1,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef data     fill:#10B981,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef control  fill:#0EA5E9,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef obs      fill:#CBD5E1,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+    [*] --> queued: POST /v1/jobs
+    queued --> running: claim, lease_token + 1
+    running --> running: heartbeat, fenced step commit,<br/>reclaim after lease expiry
+    running --> succeeded: report checkpointed
+    running --> failed: rejected or out of attempts
+    succeeded --> [*]
+    failed --> [*]
+    class queued data
+    class running core
+    class succeeded obs
+    class failed edge
