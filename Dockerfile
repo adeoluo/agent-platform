@@ -2,9 +2,13 @@
 
 # ---- builder ----
 FROM python:3.15-slim AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+RUN apt-get update && apt-get install -y --no-install-recommends git gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# ann-vector-search-library compiles its Rust core from source during the sync.
+COPY --from=rust:1-slim /usr/local/cargo /usr/local/cargo
+COPY --from=rust:1-slim /usr/local/rustup /usr/local/rustup
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:$PATH
 WORKDIR /application
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock README.md ./
