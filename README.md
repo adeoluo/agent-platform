@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/adeoluo/agent-platform/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/adeoluo/agent-platform/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/adeoluo/agent-platform/releases"><img alt="Release" src="https://img.shields.io/github/v/release/adeoluo/agent-platform"></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%7C%203.15-blue">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-client-3178C6">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
@@ -121,7 +121,7 @@ remaining time is the four remaining steps (0.8 s) plus process start-up.
 
 ## Quickstart
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
@@ -356,7 +356,7 @@ make demo
 make bench-load bench-recovery
 ```
 
-CI runs on Python 3.11 and 3.12: format check, lint, `mypy src` in strict mode, and
+CI runs on Python 3.12, 3.13, 3.14 and 3.15: format check, lint, `mypy src` in strict mode, and
 `pytest -m "not slow"` with an 80% coverage gate. The suite has 133 tests (132 in CI, 95%
 line coverage) and runs in under 40 seconds locally, including the cross-process crash-recovery and
 four-process concurrency tests. Test data is written under `.pytest-work/` in the

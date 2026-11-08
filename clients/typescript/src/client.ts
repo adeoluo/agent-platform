@@ -1,7 +1,7 @@
 /**
  * Typed client for the agent-platform HTTP API.
  *
- * Uses the runtime's `fetch` (Node 22+, Deno, Bun, browsers) and has no dependencies.
+ * Uses the runtime's `fetch` (Node 26+, Deno, Bun, browsers) and has no dependencies.
  * Every method throws {@link APIError} for a non-2xx response, carrying the server's
  * `error` code, `message`, HTTP status, and trace id when present.
  */
