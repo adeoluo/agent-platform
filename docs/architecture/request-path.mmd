@@ -1,0 +1,33 @@
+flowchart LR
+    classDef edge     fill:#F59E0B,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+    classDef core     fill:#6366F1,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef data     fill:#10B981,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef control  fill:#0EA5E9,stroke:#1E293B,color:#ffffff,stroke-width:1px;
+    classDef obs      fill:#CBD5E1,stroke:#1E293B,color:#1E293B,stroke-width:1px;
+    subgraph Edge["HTTP edge (api.py)"]
+        direction TB
+        C["Client"]:::edge -->|Bearer key| A["api.py<br/>ThreadingHTTPServer"]:::edge
+        A --> K["auth.py: HMAC key lookup<br/>401 if missing or revoked"]:::control
+        K -->|tenant from key row| R["per-tenant token bucket<br/>429 when empty"]:::control
+    end
+    subgraph Agent["Agent runtime"]
+        direction TB
+        T["Tracer span<br/>http.request"]:::obs --> AG["AgentRuntime.ask<br/>ReActAgent loop"]:::core
+        AG --> RESP["answer, citations,<br/>grounded, trace_id"]:::obs
+    end
+    subgraph Calls["Model, tools and retrieval"]
+        direction TB
+        GW["llm_gateway.Gateway<br/>422 when blocked"]:::control --> P["GroundedPolicyProvider"]:::edge
+        CALC["CalculatorTool"]:::core ~~~ CG["constrained_generation<br/>optional schema"]:::control
+        KB["KnowledgeBase<br/>tenant index only"]:::data --> HR["HybridRetriever<br/>BM25 + TF-IDF + HNSW"]:::core
+        HR --> HN["ann_vector_search<br/>HNSW"]:::data
+        P ~~~ CALC
+        CG ~~~ KB
+    end
+    subgraph State["State"]
+        direction TB
+        TS[("spans table")]:::data
+    end
+    Edge -->|allowed request| Agent
+    Agent -->|model calls, tools, search| Calls
+    Agent -.->|spans| State
