@@ -1,7 +1,7 @@
 # agent-platform TypeScript client
 
 Typed client for the [agent-platform](../../README.md) HTTP API. It has no runtime
-dependencies and uses the runtime's `fetch` (Node 22 and later, Deno, Bun, browsers).
+dependencies and uses the runtime's `fetch` (Node 26 and later, Deno, Bun, browsers).
 
 ```ts
 import { AgentPlatformClient, APIError } from "@adeoluo/agent-platform-client";
