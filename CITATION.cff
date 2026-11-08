@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Agent Platform"
+abstract: "An integrated AI platform composed from nine of these libraries: an authenticated multi-tenant API, OpenAI and Anthropic failover, streamed agent steps, an MCP server, per-tenant memory, durable multi-agent jobs with crash recovery, tracing, and evaluation."
+authors:
+  - family-names: "Ogunnoiki"
+    given-names: "Adeolu"
+version: "0.4.0"
+date-released: "2026-11-02"
+license: MIT
+repository-code: "https://github.com/adeoluo/agent-platform"
+url: "https://github.com/adeoluo/agent-platform"
+keywords:
+  - "agents"
+  - "ai-platform"
+  - "durable-execution"
+  - "evaluation"
+  - "llm"
+  - "observability"
+  - "python"
+  - "rag"
+  - "anthropic"
+  - "mcp-server"
+  - "openai"
+  - "typescript"
