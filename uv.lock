@@ -10,7 +10,7 @@ resolution-markers = [
 [[package]]
 name = "agent-memory"
 version = "0.1.0"
-source = { git = "https://github.com/adeoluo/agent-memory#e00cacbc4b171e3570fb565824d99af8ae7b1939" }
+source = { git = "https://github.com/adeoluo/agent-memory#9c541fbafb686bda540bfa249908a5fc98d732d4" }
 dependencies = [
     { name = "mcp" },
     { name = "numpy" },
@@ -64,7 +64,7 @@ dev = [
 [[package]]
 name = "ann-vector-search-library"
 version = "0.3.0"
-source = { git = "https://github.com/adeoluo/ann-vector-search-library#bc2a98d4b405d76f48d631d62de89cf80a1ea3cd" }
+source = { git = "https://github.com/adeoluo/ann-vector-search-library#d7bbab4fee66f1ae7d57c8bf90042af3918dcf92" }
 
 [[package]]
 name = "annotated-types"
@@ -656,12 +656,12 @@ wheels = [
 [[package]]
 name = "llm-gateway"
 version = "0.2.0"
-source = { git = "https://github.com/adeoluo/llm-gateway#e1e23b707a56f785a6c01d24283f35677f999977" }
+source = { git = "https://github.com/adeoluo/llm-gateway#0cf5772ef0a8d64abda135bd63a85cabfa45246b" }
 
 [[package]]
 name = "llm-observability"
 version = "0.2.0"
-source = { git = "https://github.com/adeoluo/llm-observability#47798db309cc7fd6ed2faa3c87b6f44d6a003e36" }
+source = { git = "https://github.com/adeoluo/llm-observability#5e4361822ec764bf02c27768815f16ab77be1d94" }
 
 [[package]]
 name = "mcp"
