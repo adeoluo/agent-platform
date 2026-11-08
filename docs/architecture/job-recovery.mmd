@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant API
+    participant DB as SQLite
+    participant WA as Worker A
+    participant WB as Worker B
+    API->>DB: INSERT job (queued)
+    WA->>DB: claim: token=1, expires=now+L
+    WA->>DB: save plan (blackboard snapshot)
+    loop each step
+        WA->>DB: record attempt (q1)
+        WA->>WA: Orchestrator.attempt_subtask
+        WA->>DB: save spans
+        WA->>DB: ledger row q1 + board (only if owner and token=1)
+    end
+    Note over WA: SIGKILL. Heartbeats stop.
+    WB->>DB: claim fails until expires < now
+    WB->>DB: claim: token=2
+    WB->>WB: Blackboard.restore(board)
+    WB->>DB: record attempt (next incomplete step)
+    WB->>DB: ledger rows, then status=succeeded

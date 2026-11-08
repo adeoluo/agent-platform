@@ -26,26 +26,11 @@ worker processes open it independently.
 
 ## Request path
 
-```mermaid
-flowchart LR
-    C[Client] -->|Bearer key| A[api.py<br/>ThreadingHTTPServer]
-    A --> K{auth.py<br/>HMAC lookup}
-    K -->|missing, invalid, revoked| E401[401]
-    K -->|tenant from key row| R{per-tenant<br/>token bucket}
-    R -->|empty| E429[429]
-    R --> T[Tracer span<br/>http.request]
-    T --> AG[AgentRuntime.ask<br/>react_agent.ReActAgent]
-    AG -->|every model call| GW[llm_gateway.Gateway<br/>for this tenant]
-    GW -->|injection check, PII redaction,<br/>cache, output policy| P[GroundedPolicyProvider]
-    GW -->|blocked| E422[422]
-    AG -->|tool: search_knowledge_base| KB[KnowledgeBase<br/>tenant index only]
-    KB --> HR[hybrid_rag.HybridRetriever<br/>BM25 + TF-IDF + HNSW]
-    HR --> HN[ann_vector_search_library.HNSW]
-    AG -->|tool: calculator| CALC[react_agent CalculatorTool]
-    AG -->|optional schema| CG[constrained_generation_library]
-    T --> TS[(spans table)]
-    AG --> RESP[answer, citations,<br/>grounded, sources, trace_id]
-```
+<p align="center">
+  <img src="architecture/request-path.svg" alt="Request path diagram" width="860">
+</p>
+
+<sub>Legend: amber = entry points and external systems, indigo = core logic, green = data and state, blue = validation and control, grey = observability and outputs.</sub>
 
 1. `api.py` reads the `Authorization: Bearer` (or `X-API-Key`) header and calls
    `KeyStore.verify`. The tenant comes from the stored key row. Request bodies never carry
@@ -66,41 +51,15 @@ flowchart LR
 
 ## Durable job lifecycle
 
-```mermaid
-stateDiagram-v2
-    [*] --> queued: POST /v1/jobs
-    queued --> running: claim (BEGIN IMMEDIATE)<br/>lease_owner, lease_expires, lease_token+1
-    running --> running: heartbeat renews lease
-    running --> running: step done: ledger row + board snapshot<br/>(one transaction, fenced by lease_token)
-    running --> running: lease expired, worker dead:<br/>another worker claims, token+1, resumes from board
-    running --> succeeded: report step checkpointed
-    running --> failed: critic rejection, step error,<br/>or attempts > max_attempts
-    succeeded --> [*]
-    failed --> [*]
-```
+<p align="center">
+  <img src="architecture/job-states.svg" alt="Durable job lifecycle diagram" width="483">
+</p>
 
-```mermaid
-sequenceDiagram
-    participant API
-    participant DB as SQLite
-    participant WA as Worker A
-    participant WB as Worker B
-    API->>DB: INSERT job (queued)
-    WA->>DB: claim: token=1, expires=now+L
-    WA->>DB: save plan (blackboard snapshot)
-    loop each step
-        WA->>DB: record attempt (q1)
-        WA->>WA: Orchestrator.attempt_subtask
-        WA->>DB: save spans
-        WA->>DB: ledger row q1 + board (only if owner and token=1)
-    end
-    Note over WA: SIGKILL. Heartbeats stop.
-    WB->>DB: claim fails until expires < now
-    WB->>DB: claim: token=2
-    WB->>WB: Blackboard.restore(board)
-    WB->>DB: record attempt (next incomplete step)
-    WB->>DB: ledger rows, then status=succeeded
-```
+<sub>Legend: amber = entry points and external systems, indigo = core logic, green = data and state, blue = validation and control, grey = observability and outputs.</sub>
+
+<p align="center">
+  <img src="architecture/job-recovery.svg" alt="Durable job recovery sequence diagram" width="776">
+</p>
 
 ### Tables
 
