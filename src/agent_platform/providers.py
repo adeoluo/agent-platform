@@ -32,8 +32,10 @@ from agent_platform.model import GroundedPolicyProvider
 
 OPENAI_URL = "https://api.openai.com/v1"
 ANTHROPIC_URL = "https://api.anthropic.com/v1"
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
-DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
+DEFAULT_OPENAI_MODEL = "gpt-6-luna"
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
+# Messages API version: 2026-10-21 rejects sampling parameters, so requests send none.
+ANTHROPIC_VERSION = "2026-10-21"
 PROVIDER_NAMES = ("offline", "openai", "anthropic")
 
 
@@ -118,7 +120,9 @@ class OpenAIProvider:
             {"authorization": f"Bearer {self.api_key}"},
             {
                 "model": self.model,
-                "max_tokens": self.max_tokens,
+                "max_completion_tokens": self.max_tokens,
+                # Reasoning off keeps answers fast and lets temperature 0 make them repeatable.
+                "reasoning_effort": "none",
                 "temperature": 0,
                 "messages": [
                     {"role": "system", "content": system},
@@ -146,7 +150,7 @@ class AnthropicProvider:
     api_key: str = ""
     base_url: str = ANTHROPIC_URL
     timeout: float = 30.0
-    max_tokens: int = 512
+    max_tokens: int = 2048  # includes adaptive thinking tokens on Claude 5 models
     usage: UsageCounter = field(default_factory=UsageCounter)
 
     def __post_init__(self) -> None:
@@ -161,11 +165,10 @@ class AnthropicProvider:
         payload = _post_json(
             "anthropic",
             f"{self.base_url.rstrip('/')}/messages",
-            {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"},
+            {"x-api-key": self.api_key, "anthropic-version": ANTHROPIC_VERSION},
             {
                 "model": self.model,
                 "max_tokens": self.max_tokens,
-                "temperature": 0,
                 "system": system,
                 "messages": [{"role": "user", "content": prompt}],
             },

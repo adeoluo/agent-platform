@@ -98,6 +98,9 @@ def test_openai_request_shape_and_usage(fake: FakeLLM) -> None:
     assert headers["authorization"] == "Bearer sk-test"
     assert body["model"] == "m1"
     assert body["temperature"] == 0
+    assert body["reasoning_effort"] == "none"
+    assert body["max_completion_tokens"] == 512
+    assert "max_tokens" not in body
     assert body["messages"] == [
         {"role": "system", "content": "be brief"},
         {"role": "user", "content": "hi"},
@@ -121,7 +124,9 @@ def test_anthropic_request_shape_and_text_blocks(fake: FakeLLM) -> None:
     assert provider.complete("sys", "hi") == "ab"
     _, headers, body = fake.requests[0]
     assert headers["x-api-key"] == "ak-test"
-    assert headers["anthropic-version"] == "2023-06-01"
+    assert headers["anthropic-version"] == "2026-10-21"
+    assert body["max_tokens"] == 2048
+    assert not {"temperature", "top_p", "top_k"} & body.keys()
     assert body["system"] == "sys"
     assert body["messages"] == [{"role": "user", "content": "hi"}]
 
@@ -176,7 +181,7 @@ def test_failover_from_anthropic_to_openai(fake: FakeLLM) -> None:
     )
     assert chain.complete("s", "p") == "from openai"
     assert chain.stats.failovers == 1
-    assert chain.name == "anthropic:claude-3-5-haiku-latest > openai:gpt-4o-mini"
+    assert chain.name == "anthropic:claude-haiku-5-5 > openai:gpt-6-luna"
 
 
 def test_parse_chain_and_build_provider() -> None:
