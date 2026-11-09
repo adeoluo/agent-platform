@@ -6,8 +6,8 @@ abstract: "An integrated AI platform composed from nine of these libraries: an a
 authors:
   - family-names: "Ogunnoiki"
     given-names: "Adeolu"
-version: "0.4.0"
-date-released: "2026-11-02"
+version: "0.4.1"
+date-released: "2026-11-09"
 license: MIT
 repository-code: "https://github.com/adeoluo/agent-platform"
 url: "https://github.com/adeoluo/agent-platform"

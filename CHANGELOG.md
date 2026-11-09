@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
+## [0.4.1] 2026-11-09
+
+### Bug fixes
+
+- Current OpenAI and Anthropic models and request parameters for the hosted providers (#9)
+
+### Documentation
+
+- Remove authorship statements from docs and scripts
+- Recorded demos of more commands, with their vhs tapes (#2)
+- Recorded demos of the HTTP service and more commands (#3)
+- Complete citation metadata and bump it on release (#5)
+- Render every architecture diagram in the house style (#7)
+- Diagrams on white in the shared theme, make diagram for every diagram, and a self-contained Definition of Done (#8)
+
+### Build and CI
+
+- Build and attach the sdist and wheel to every release (#10)
+
+### Maintenance
+
+- Latest toolchain and CI versions (#4)
+- Release script keeps hard-coded version strings in step (#6)
+
 ## [0.4.0] 2026-11-02
 
 ### Features
