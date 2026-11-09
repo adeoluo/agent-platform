@@ -1,6 +1,6 @@
 {
   "name": "@adeoluo/agent-platform-client",
-  "version": "0.1.0",
+  "version": "0.4.1",
   "description": "Typed TypeScript client for agent-platform: requests, streamed agent steps, typed errors. No runtime dependencies.",
   "license": "MIT",
   "author": "Adeolu Ogunnoiki",
