@@ -16,7 +16,7 @@
 
 > **Evidence level: unit tested.** Tenant isolation, job leases and recovery under SIGKILL have integration tests. Throughput is measured against a deterministic offline model, not a live LLM. Not independently reproduced and not used in production. [What the levels mean](https://github.com/adeoluo#evidence-levels).
 
-## In plain English
+## Summary
 
 This is a backend service that runs AI agents for many customers at once. It keeps each
 customer's data apart, and it finishes a long job even if the machine doing it dies.
