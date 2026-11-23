@@ -15,7 +15,7 @@ from types import FrameType
 from typing import Any
 
 from agent_platform import __version__
-from agent_platform.config import Settings
+from agent_platform.config import DEFAULT_PEPPER, Settings, is_loopback_host
 
 DEFAULT_URL = "http://127.0.0.1:8080"
 
@@ -55,6 +55,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     settings = _settings(args)
     settings = replace(settings, host=args.host or settings.host, port=args.port or settings.port)
+    if not is_loopback_host(settings.host) and settings.key_pepper == DEFAULT_PEPPER:
+        raise SystemExit(
+            "refusing to bind non-loopback host "
+            f"{settings.host!r} with the development default HMAC pepper; "
+            "set AGENT_PLATFORM_KEY_PEPPER to a secret random value."
+        )
     platform = Platform(settings)
     server = make_server(platform, settings.host, settings.port)
     stop = threading.Event()

@@ -7,8 +7,15 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 DEFAULT_DB_PATH = Path(".platform") / "platform.db"
-# Development-only default. Production deployments must set AGENT_PLATFORM_KEY_PEPPER.
+# Loopback-only default; non-loopback binds require AGENT_PLATFORM_KEY_PEPPER.
 DEFAULT_PEPPER = "agent-platform-development-pepper"
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def is_loopback_host(host: str) -> bool:
+    """Return True when ``host`` is a local loopback interface."""
+    normalized = host.strip().lower().strip("[]")
+    return normalized in _LOOPBACK_HOSTS or normalized.startswith("127.")
 
 
 @dataclass(frozen=True)

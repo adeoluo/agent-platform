@@ -88,6 +88,14 @@ def test_cli_requires_an_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
         main(["ask", "--url", "http://127.0.0.1:9", "hello"])
 
 
+def test_cli_serve_refuses_non_loopback_with_default_pepper(
+    workdir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("AGENT_PLATFORM_KEY_PEPPER", raising=False)
+    with pytest.raises(SystemExit, match="AGENT_PLATFORM_KEY_PEPPER"):
+        main(["serve", "--db", str(workdir / "pub.db"), "--host", "0.0.0.0", "--port", "0"])
+
+
 def test_cli_eval_in_process(workdir: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["eval", "--workdir", str(workdir / "eval"), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
