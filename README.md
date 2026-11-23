@@ -16,6 +16,22 @@
 
 > **Evidence level: unit tested.** Tenant isolation, job leases and recovery under SIGKILL have integration tests. Throughput is measured against a deterministic offline model, not a live LLM. Not independently reproduced and not used in production. [What the levels mean](https://github.com/adeoluo#evidence-levels).
 
+## In plain English
+
+This is a backend service that runs AI agents for many customers at once. It keeps each
+customer's data apart, and it finishes a long job even if the machine doing it dies.
+
+- **A killed job picks up where it stopped.** A worker is killed in the middle of a five-step
+  job. Another worker takes over as soon as the dead worker's claim runs out (0.5 to 2
+  seconds in the tests), and zero finished steps are run again.
+- **It stays steady under load.** 516 requests per second for repeated questions and 244 for
+  new ones, with no errors in 2,000 requests each.
+- **Customers cannot see each other's data,** and that is covered by tests.
+
+**Where it falls short:** by default the "AI model" behind it is a scripted stand-in, not a
+real language model, so the speed numbers measure the service and not a model. It is one
+Python process on SQLite.
+
 ## Motivation
 
 An authenticated, multi-tenant AI service that answers questions from each tenant's own
