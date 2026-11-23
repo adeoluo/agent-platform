@@ -14,6 +14,8 @@
 
 ---
 
+> **Evidence level: unit tested.** Tenant isolation, job leases and recovery under SIGKILL have integration tests. Throughput is measured against a deterministic offline model, not a live LLM. Not independently reproduced and not used in production. [What the levels mean](https://github.com/adeoluo#evidence-levels).
+
 ## Motivation
 
 An authenticated, multi-tenant AI service that answers questions from each tenant's own
