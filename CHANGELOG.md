@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The file is generated
 from Conventional Commits by [git-cliff](https://git-cliff.org) when a release is cut
 with `make cut-release`.
 
+## [0.4.2] 2026-11-23
+
+### Bug fixes
+
+- The Rust core and nested packages report the release version (#11)
+- **providers:** Use standard OpenAI/Anthropic model IDs and lead README with infra benchmarks
+- Stop leaking two file descriptors per request
+
+### Refactoring
+
+- Integrate agent, orchestrator, memory, and schema subsystems into _internal
+
+### Documentation
+
+- State the evidence level
+- Add a plain-English summary of what this is, its best results and its limits
+- Rename the opening section to Summary
+- Rename the opening section to Highlights
+
+### Build and CI
+
+- Vendor internal agent, memory, and schema packages
+- Use standard LTS container base images in Dockerfile
+
 ## [0.4.1] 2026-11-09
 
 ### Bug fixes
