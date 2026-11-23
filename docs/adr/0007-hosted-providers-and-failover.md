@@ -23,9 +23,9 @@ provider protocol so they sit behind the same gateway as the offline policy.
   (0.5 s doubling, capped at 8 s) and failover to the next entry.
 * The API maps an exhausted chain to 503 with `Retry-After` and a rejected request to 502,
   and counts both in `agent_platform_provider_errors_total`.
-* Defaults are the current small models, `gpt-6-luna` and `claude-haiku-5-5`. OpenAI
+* Defaults are the current small models, `gpt-4o-mini` and `claude-3-5-haiku-latest`. OpenAI
   requests set `reasoning_effort: "none"` and temperature 0, so answers repeat and no hidden
-  reasoning tokens are billed. Anthropic requests use API version `2026-10-21` and send no
+  reasoning tokens are billed. Anthropic requests use API version `2023-06-01` and send no
   sampling parameters, because that version and the Claude 5 models accept only the defaults;
   their token budget (2048) leaves room for adaptive thinking. Token usage reported by the
   provider is accumulated per provider instance.

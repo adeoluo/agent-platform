@@ -49,7 +49,7 @@ dev = [
 [[package]]
 name = "ann-vector-search-library"
 version = "0.3.2"
-source = { git = "https://github.com/adeoluo/ann-vector-search-library#78b64a0d06513747578fbb6fcb70e0d6aa42e642" }
+source = { git = "https://github.com/adeoluo/ann-vector-search-library#9eddd06da533d23c1cad0d86a4413e5da9c1841c" }
 
 [[package]]
 name = "ast-serialize"
@@ -238,7 +238,7 @@ wheels = [
 [[package]]
 name = "evaluation-harness"
 version = "0.1.1"
-source = { git = "https://github.com/adeoluo/evaluation-harness#8578e087f523bc23ce0bc7db296b18b191bff94e" }
+source = { git = "https://github.com/adeoluo/evaluation-harness#aa24b239e9ecbdb2b4c6cf89b19bb8e27631ac81" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -364,12 +364,12 @@ wheels = [
 [[package]]
 name = "llm-gateway"
 version = "0.2.3"
-source = { git = "https://github.com/adeoluo/llm-gateway#a78e30717a6894bf74763bbab140c39d404e7037" }
+source = { git = "https://github.com/adeoluo/llm-gateway#1fe39199c90f5dae8e0c9dfaec4054e95131fe46" }
 
 [[package]]
 name = "llm-observability"
 version = "0.2.1"
-source = { git = "https://github.com/adeoluo/llm-observability#ca673e944a24fa05a6258d85106fe25f8104f987" }
+source = { git = "https://github.com/adeoluo/llm-observability#535441ba10669a80daa57f44cdfa24f58814b644" }
 
 [[package]]
 name = "mypy"

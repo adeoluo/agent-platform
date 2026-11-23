@@ -32,10 +32,10 @@ from agent_platform.model import GroundedPolicyProvider
 
 OPENAI_URL = "https://api.openai.com/v1"
 ANTHROPIC_URL = "https://api.anthropic.com/v1"
-DEFAULT_OPENAI_MODEL = "gpt-6-luna"
-DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
-# Messages API version: 2026-10-21 rejects sampling parameters, so requests send none.
-ANTHROPIC_VERSION = "2026-10-21"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
+# Messages API version: 2023-06-01 rejects sampling parameters, so requests send none.
+ANTHROPIC_VERSION = "2023-06-01"
 PROVIDER_NAMES = ("offline", "openai", "anthropic")
 
 

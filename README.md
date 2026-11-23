@@ -62,32 +62,7 @@ libraries are pinned in `uv.lock` alongside four internal platform subsystems un
 
 ## Results
 
-### Evaluation
-
-`uv run agent-platform eval` starts an in-process server, ingests the fixed corpus in
-`src/agent_platform/corpus.py` for a fresh tenant, and asks 20 questions through
-`POST /v1/ask`: 15 answerable from the documents, 3 arithmetic, and 2 not answerable from
-the documents.
-
-| Metric | Result |
-| --- | --- |
-| Accuracy (substring match) | 95.0% (19 of 20), bootstrap 95% CI 85.0% to 100.0% |
-| Retrieval questions | 93.3% (14 of 15) |
-| Arithmetic questions | 100% (3 of 3) |
-| Unanswerable questions answered "could not find" | 100% (2 of 2) |
-| Retrieval answers that cite a source | 100% |
-| Retrieval answers citing the expected document | 100% |
-| Client latency p50 / p95 / p99 | 7.1 / 12.2 / 12.3 ms |
-
-The one miss is real and left in: the `hybrid_rag` sentence chunker splits on every
-period, so "TLS 1.3." becomes "TLS 1. 3." and the extracted answer is truncated to
-"TLS 1.". The cited document is still correct. The answers are extractive (see
-[ADR 0004](docs/adr/0004-offline-policy-model-behind-the-gateway.md)), so these numbers
-measure retrieval, grounding, and the request path, not generative quality. The set is
-small and was written alongside the corpus, so it is a regression check, not a benchmark
-of general ability.
-
-### Benchmarks
+### Infrastructure benchmarks (load and crash recovery)
 
 Measured on an 8-core Apple M1 (1-minute load average 2.2 to 3.1 during the run). These
 benchmarks use the deterministic offline policy model so they measure HTTP, authentication,
@@ -122,6 +97,33 @@ per step) and immediately starts a replacement process.
 Reclaim time tracks the lease duration, as designed: the kill lands just after a
 checkpoint renewed the lease, so the replacement waits out nearly the whole lease. The
 remaining time is the four remaining steps (0.8 s) plus process start-up.
+
+### End-to-end request-path regression check (`agent-platform eval`)
+
+> This 20-question hand-written suite was authored alongside the bundled corpus as a
+> deterministic CI regression check for retrieval, citation grounding, calculator routing, and
+> abstention - not as a benchmark of general LLM capability.
+
+`uv run agent-platform eval` starts an in-process server, ingests the fixed corpus in
+`src/agent_platform/corpus.py` for a fresh tenant, and asks 20 questions through
+`POST /v1/ask`: 15 answerable from the documents, 3 arithmetic, and 2 not answerable from
+the documents.
+
+| Metric | Result |
+| --- | --- |
+| Accuracy (substring match) | 95.0% (19 of 20), bootstrap 95% CI 85.0% to 100.0% |
+| Retrieval questions | 93.3% (14 of 15) |
+| Arithmetic questions | 100% (3 of 3) |
+| Unanswerable questions answered "could not find" | 100% (2 of 2) |
+| Retrieval answers that cite a source | 100% |
+| Retrieval answers citing the expected document | 100% |
+| Client latency p50 / p95 / p99 | 7.1 / 12.2 / 12.3 ms |
+
+The one miss is real and left in: the `hybrid_rag` sentence chunker splits on every
+period, so "TLS 1.3." becomes "TLS 1. 3." and the extracted answer is truncated to
+"TLS 1.". The cited document is still correct. The answers are extractive (see
+[ADR 0004](docs/adr/0004-offline-policy-model-behind-the-gateway.md)), so these numbers
+measure retrieval, grounding, and the request path, not generative quality.
 
 ## Quickstart
 
@@ -284,7 +286,7 @@ The CLI against a running server: an answer with citations, then a durable resea
   offline and reproducible. ([ADR 0004](docs/adr/0004-offline-policy-model-behind-the-gateway.md))
 - **Composing existing libraries through thin adapters.** The nine libraries are used
   unmodified. ([ADR 0005](docs/adr/0005-composing-libraries-with-adapters.md))
-- **Conversation memory as cited evidence.** Each tenant has an `agent-memory` namespace in
+- **Conversation memory as cited evidence.** Each tenant has a memory namespace in
   its own SQLite file. In a session, recalled memories enter the search results as
   `[memory:<id>]` passages, so an answer from memory is cited and grounding-checked like an
   answer from a document, and each turn is written back with fact extraction.

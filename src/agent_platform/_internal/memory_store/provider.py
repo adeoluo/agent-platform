@@ -29,7 +29,7 @@ class AnthropicProvider:
         if not key:
             raise RuntimeError("set ANTHROPIC_API_KEY to use the Anthropic provider")
         self.api_key = key
-        self.model = model or os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
+        self.model = model or os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
         self.max_tokens = max_tokens
         self.timeout = timeout
 
@@ -48,8 +48,8 @@ class AnthropicProvider:
             headers={
                 "content-type": "application/json",
                 "x-api-key": self.api_key,
-                # 2026-10-21 rejects sampling parameters; the body sends none.
-                "anthropic-version": "2026-10-21",
+                # 2023-06-01 rejects sampling parameters; the body sends none.
+                "anthropic-version": "2023-06-01",
             },
             method="POST",
         )
