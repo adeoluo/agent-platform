@@ -85,6 +85,20 @@ def run_pass(
     }
 
 
+def server_gauges(url: str, key: str) -> dict[str, int]:
+    """Open SQLite connections and file descriptors of the server process, from /metrics."""
+    names = {
+        "agent_platform_db_connections": "db_connections",
+        "agent_platform_open_file_descriptors": "open_fds",
+    }
+    out = {}
+    for line in Client(url, key).metrics().splitlines():
+        name, _, value = line.partition(" ")
+        if name in names:
+            out[names[name]] = int(float(value))
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tenants", type=int, default=20)
@@ -108,15 +122,18 @@ def main() -> None:
             client.ingest(ACME_DOCUMENTS)
             # Warm-up: the first query per tenant builds its index; exclude that one-off cost.
             client.ask("warm up the index")
+        before = server_gauges(url, keys[0])
         results = [
             run_pass(url, keys, clients=args.clients, requests=args.requests, unique=u, seed=7)
             for u in (False, True)
         ]
+        after = server_gauges(url, keys[0])
     finally:
         server.terminate()
         server.wait(timeout=10)
+    resources = {"before": before, "after": after}
     if args.json:
-        print(json.dumps(results, indent=2))
+        print(json.dumps({"passes": results, "server_resources": resources}, indent=2))
         return
     print(
         f"{'mode':<9} {'requests':>8} {'clients':>7} {'tenants':>7} {'req/s':>8} "
@@ -128,6 +145,12 @@ def main() -> None:
             f"{r['throughput_rps']:>8} {r['p50_ms']:>8} {r['p95_ms']:>8} {r['p99_ms']:>8}  "
             f"{r['statuses']}"
         )
+    total = sum(int(str(r["requests"])) for r in results)
+    print(
+        f"server after {total} requests: {after.get('db_connections')} SQLite connections "
+        f"({before.get('db_connections')} before), {after.get('open_fds')} open file "
+        f"descriptors ({before.get('open_fds')} before)"
+    )
 
 
 if __name__ == "__main__":

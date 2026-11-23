@@ -117,12 +117,22 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 class Database:
-    """A database file plus one lazily opened connection per thread."""
+    """A database file plus one connection per live thread, recycled when the thread ends.
+
+    The API server runs every request on its own thread. Keeping one connection per thread
+    for the life of the process leaked two file descriptors per request (the database file
+    and its write-ahead log), so connections are handed back when a thread finishes and
+    reused by the next one.
+    """
+
+    #: Connections kept open for reuse after their thread has ended.
+    MAX_IDLE = 8
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         self._local = threading.local()
-        self._all: list[sqlite3.Connection] = []
+        self._owned: dict[int, tuple[threading.Thread, sqlite3.Connection]] = {}
+        self._idle: list[sqlite3.Connection] = []
         self._lock = threading.Lock()
         # Threads in one process queue on this lock instead of SQLite's busy handler, whose
         # sleep-and-retry backoff produces long tail latencies under contention. Other
@@ -131,14 +141,52 @@ class Database:
         self.conn().executescript(SCHEMA)
 
     def conn(self) -> sqlite3.Connection:
-        """Return this thread's connection, opening it on first use."""
+        """Return this thread's connection, reusing an idle one or opening it on first use."""
         conn: sqlite3.Connection | None = getattr(self._local, "conn", None)
         if conn is None:
-            conn = connect(self.path)
+            with self._lock:
+                self._reap_locked()
+                conn = self._idle.pop() if self._idle else None
+            if conn is None:
+                conn = connect(self.path)
             self._local.conn = conn
             with self._lock:
-                self._all.append(conn)
+                self._owned[id(conn)] = (threading.current_thread(), conn)
         return conn
+
+    def release(self) -> None:
+        """Hand back this thread's connection; call when a thread that used the database ends."""
+        conn: sqlite3.Connection | None = getattr(self._local, "conn", None)
+        if conn is None:
+            return
+        self._local.conn = None
+        with self._lock:
+            self._owned.pop(id(conn), None)
+            self._retire_locked(conn)
+
+    def connection_count(self) -> int:
+        """Open connections: those held by live threads plus the idle ones kept for reuse."""
+        with self._lock:
+            self._reap_locked()
+            return len(self._owned) + len(self._idle)
+
+    def _retire_locked(self, conn: sqlite3.Connection) -> None:
+        try:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            conn.close()
+            return
+        if len(self._idle) < self.MAX_IDLE:
+            self._idle.append(conn)
+        else:
+            conn.close()
+
+    def _reap_locked(self) -> None:
+        """Recover connections whose thread ended without calling :meth:`release`."""
+        dead = [key for key, (thread, _) in self._owned.items() if not thread.is_alive()]
+        for key in dead:
+            self._retire_locked(self._owned.pop(key)[1])
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
@@ -164,7 +212,10 @@ class Database:
     def close(self) -> None:
         """Close every connection opened through this object."""
         with self._lock:
-            for conn in self._all:
+            for _, conn in self._owned.values():
                 conn.close()
-            self._all.clear()
+            for conn in self._idle:
+                conn.close()
+            self._owned.clear()
+            self._idle.clear()
         self._local = threading.local()

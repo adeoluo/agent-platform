@@ -24,8 +24,8 @@ customer's data apart, and it finishes a long job even if the machine doing it d
 - **A killed job picks up where it stopped.** A worker is killed in the middle of a five-step
   job. Another worker takes over as soon as the dead worker's claim runs out (0.5 to 2
   seconds in the tests), and zero finished steps are run again.
-- **It stays steady under load.** 516 requests per second for repeated questions and 244 for
-  new ones, with no errors in 2,000 requests each.
+- **It stays steady under load.** 554 requests per second for repeated questions and 390 for
+  new ones, with no errors in 10,000 requests each, on a server limited to 256 open files.
 - **Customers cannot see each other's data,** and that is covered by tests.
 
 **Where it falls short:** by default the "AI model" behind it is a scripted stand-in, not a
@@ -87,20 +87,35 @@ benchmarks use the deterministic offline policy model so they measure HTTP, auth
 hybrid retrieval, and SQLite WAL / lease-fencing latency rather than remote LLM token-generation
 time.
 
-**Load** (`uv run python benchmarks/load.py`): the server runs as its own process; 20
-tenants each with their own key and corpus; 16 client threads send 2,000 `POST /v1/ask`
-requests per pass over loopback. One warm-up request per tenant builds its index first.
+**Load** (`ulimit -n 256; uv run python benchmarks/load.py --requests 10000`): the server
+runs as its own process; 20 tenants each with their own key and corpus; 16 client threads
+send 10,000 `POST /v1/ask` requests per pass over loopback, each on a new connection. One
+warm-up request per tenant builds its index first. The open-file limit is lowered to 256 so
+that a descriptor leak would end the run.
 
 | Pass | Requests | Throughput | p50 | p95 | p99 | Errors |
 | --- | --- | --- | --- | --- | --- | --- |
-| Repeated questions (gateway cache hits) | 2,000 | 516.1 req/s | 30.4 ms | 39.1 ms | 48.2 ms | 0 |
-| Unique questions (every model call misses) | 2,000 | 243.9 req/s | 63.7 ms | 93.2 ms | 142.1 ms | 0 |
+| Repeated questions (gateway cache hits) | 10,000 | 553.7 req/s | 28.2 ms | 36.5 ms | 45.6 ms | 0 |
+| Unique questions (every model call misses) | 10,000 | 390.2 req/s | 39.2 ms | 55.7 ms | 84.9 ms | 0 |
+
+After the 20,000 requests the server held 9 SQLite connections and 39 open file descriptors
+(2 and 15 before the first pass); `/metrics` exports both as gauges.
+
+Versions up to 0.4.1 leaked two file descriptors per request: every request runs on its own
+thread, each thread opened its own SQLite connection, and the connections were never closed.
+A server therefore ran out of descriptors after a number of requests equal to about half
+its open-file limit (the review measured about 2,040 requests before every call returned
+HTTP 500). This was found by an outside review, not by the test suite,
+which never sent enough requests to one server. Connections are now handed back when a
+request thread ends and reused (`Database.release`, at most 8 kept idle), and
+`tests/test_connection_reuse.py` sends 300 requests to one server and fails if descriptors
+grow with the request count.
 
 Every request runs the full path: key verification against SQLite, rate limiting, the
 agent loop with two gateway calls, hybrid retrieval, and a trace write. The server is a
 single Python process, so throughput is bounded by the GIL. Moving SQLite writes behind an
 in-process lock (instead of SQLite's sleep-and-retry busy handler) cut the p99 of the cached
-pass from over a second to 48 ms.
+pass from over a second to under 50 ms.
 
 **Recovery** (`uv run python benchmarks/recovery.py`): five trials per lease duration. Each
 trial kills a worker with SIGKILL right after its first checkpoint of a five-step job (0.2 s
@@ -381,7 +396,7 @@ make bench-load bench-recovery
 ```
 
 CI runs on Python 3.12, 3.13, 3.14 and 3.15: format check, lint, `mypy src` in strict mode, and
-`pytest -m "not slow"` with an 80% coverage gate. The suite has 133 tests (132 in CI, 95%
+`pytest -m "not slow"` with an 80% coverage gate. The suite has 140 tests (139 in CI, 95%
 line coverage) and runs in under 40 seconds locally, including the cross-process crash-recovery and
 four-process concurrency tests. Test data is written under `.pytest-work/` in the
 repository rather than a system temporary directory.
@@ -397,6 +412,9 @@ What the suite in `tests/` covers:
 - `test_jobs.py`: the lease protocol, heartbeats, and the in-process worker.
 - `test_concurrency.py`: many workers racing for many jobs never double-claim or
   double-record.
+- `test_connection_reuse.py`: a server holds a bounded number of SQLite connections and file
+  descriptors over hundreds of requests; connections of finished threads are reused, rolled
+  back if their thread died mid-transaction, and closed beyond the idle cap.
 - `test_crash_recovery.py`: cross-process crash recovery with SIGKILL, plus the slow
   three-kill soak test (marked `slow`, excluded from CI).
 - `test_model.py`: the extractive policy model and the gateway adapter (stop sequences,

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from llm_gateway import ProviderError
@@ -319,6 +321,13 @@ class PlatformHTTPServer(ThreadingHTTPServer):
         self.platform = platform
         super().__init__(address, _RequestHandler)
 
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        """Serve one connection, then hand its database connection back for reuse."""
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.platform.db.release()
+
 
 class _RequestHandler(BaseHTTPRequestHandler):
     server: PlatformHTTPServer
@@ -559,6 +568,18 @@ def render_metrics(platform: Platform) -> str:
                 float(value),
                 tenant=tenant,
             )
+    platform.metrics.set_gauge(
+        "agent_platform_db_connections",
+        "SQLite connections open in this server process (in use plus idle).",
+        float(platform.db.connection_count()),
+    )
+    fd_dir = Path("/dev/fd")
+    if fd_dir.exists():
+        platform.metrics.set_gauge(
+            "agent_platform_open_file_descriptors",
+            "File descriptors open in this server process.",
+            float(len(os.listdir(fd_dir))),
+        )
     return platform.metrics.render()
 
 
