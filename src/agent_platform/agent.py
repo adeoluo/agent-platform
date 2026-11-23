@@ -31,12 +31,18 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from constrained_generation_library import Property
 from llm_gateway import GatewayResponse
 from llm_observability import Tracer
-from react_agent import AgentAction, Callbacks, FunctionTool, ReActAgent, ToolRegistry
-from react_agent.tools import CalculatorTool
 
+from agent_platform._internal.react_core import (
+    AgentAction,
+    Callbacks,
+    FunctionTool,
+    ReActAgent,
+    ToolRegistry,
+)
+from agent_platform._internal.react_core.tools import CalculatorTool
+from agent_platform._internal.schema_fsm import Property
 from agent_platform.knowledge import KnowledgeBase, Passage
 from agent_platform.memory import MemoryHit, TenantMemory
 from agent_platform.model import (

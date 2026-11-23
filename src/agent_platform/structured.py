@@ -15,7 +15,7 @@ import string
 from dataclasses import dataclass
 from typing import Any
 
-from constrained_generation_library import (
+from agent_platform._internal.schema_fsm import (
     EOS,
     Property,
     compile_schema,

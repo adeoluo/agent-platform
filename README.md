@@ -43,21 +43,22 @@ step, with sequence and state diagrams, in [docs/ARCHITECTURE.md](docs/ARCHITECT
 
 ### How the libraries compose
 
-| Component | Library | Role in the platform |
+| Component | Package / Module | Role in the platform |
 | --- | --- | --- |
 | Safety gateway | [llm-gateway](https://github.com/adeoluo/llm-gateway) | Every model call goes through a per-tenant `Gateway`: injection screening (including retrieved text), PII redaction in and out, output policy, response cache. `TenantRateLimiter` enforces per-tenant API quotas. |
-| Agent loop | [`react_agent`](vendor/react_agent) | `ReActAgent` drives tool use with a tenant-bound `ToolRegistry` (knowledge-base search and the library's AST-based `CalculatorTool`). |
-| Durable jobs | [`multi_agent_orchestrator`](vendor/multi_agent_orchestrator) | Planner, worker, and critic for research jobs. The `Blackboard` snapshot is the checkpoint that a replacement worker restores. |
+| Agent loop | [`_internal/react_core`](src/agent_platform/_internal/react_core) | `ReActAgent` drives tool use with a tenant-bound `ToolRegistry` (knowledge-base search and AST-based `CalculatorTool`). |
+| Durable jobs | [`_internal/orchestrator_core`](src/agent_platform/_internal/orchestrator_core) | Planner, worker, and critic for research jobs. The `Blackboard` snapshot is the checkpoint that a replacement worker restores. |
 | Retrieval | [hybrid-rag](https://github.com/adeoluo/hybrid-rag) | Sentence chunking and `HybridRetriever` fusing BM25, TF-IDF, and the HNSW retriever by reciprocal rank fusion. |
 | Vector search | [ann-vector-search-library](https://github.com/adeoluo/ann-vector-search-library) | `HNSW` index over hashed embeddings, adapted to the `hybrid_rag` retriever protocol. |
-| Structured output | [`constrained_generation_library`](vendor/constrained_generation_library) | Compiles a response schema to an automaton and decodes JSON that is valid by construction. |
-| Memory | [`agent_memory`](vendor/agent_memory) | Per-tenant episodic, semantic, and procedural memory in SQLite with hybrid recall and fact extraction. |
+| Structured output | [`_internal/schema_fsm`](src/agent_platform/_internal/schema_fsm) | Compiles a response schema to a finite automaton and decodes JSON that is valid by construction. |
+| Memory | [`_internal/memory_store`](src/agent_platform/_internal/memory_store) | Per-tenant episodic, semantic, and procedural memory in SQLite with hybrid recall and fact extraction. |
 | Evaluation | [evaluation-harness](https://github.com/adeoluo/evaluation-harness) | `Runner`, `Task`, and `IncludesGrader` run the fixed question set through the public API, with bootstrap confidence intervals. |
 | Tracing | [llm-observability](https://github.com/adeoluo/llm-observability) | `Tracer` spans for requests, agent runs, model calls, tools, and job steps, persisted per tenant and retrievable by id. |
 
 Interface mismatches are bridged by small adapters in this repository (for example
-`GatewayModel` turns the gateway into a `react_agent` language model). The libraries are
-used unmodified: five as git dependencies pinned in `uv.lock` and four vendored in `vendor/`.
+`GatewayModel` turns the gateway into an agent language model). Five standalone public
+libraries are pinned in `uv.lock` alongside four internal platform subsystems under
+`src/agent_platform/_internal/`.
 
 ## Results
 

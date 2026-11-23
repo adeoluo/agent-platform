@@ -12,9 +12,9 @@ while the agent's language-model protocol is `complete(prompt, stop=...)`.
 
 ## Decision
 
-Depend on the standalone public libraries as git dependencies pinned in `uv.lock`, vendor the
-remaining internal packages under `vendor/`, and bridge mismatched interfaces with small
-adapters in this repository. The libraries are not modified.
+Depend on the five standalone public libraries as git dependencies pinned in `uv.lock`, house
+the internal agent, orchestrator, memory, and schema-automaton subsystems under
+`src/agent_platform/_internal/`, and bridge mismatched interfaces with thin adapters.
 
 | Adapter | Bridges |
 | --- | --- |

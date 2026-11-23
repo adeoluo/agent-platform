@@ -23,8 +23,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from llm_observability import Tracer
-from multi_agent_orchestrator import Blackboard
 
+from agent_platform._internal.orchestrator_core import Blackboard
 from agent_platform.agent import AgentRuntime
 from agent_platform.jobs import Job, JobStore, Lease
 from agent_platform.orchestration import build_orchestrator

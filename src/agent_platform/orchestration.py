@@ -19,9 +19,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from llm_observability import Tracer
-from multi_agent_orchestrator import Review, Subtask, WorkerResult
-from multi_agent_orchestrator.orchestrator import Orchestrator
 
+from agent_platform._internal.orchestrator_core import Review, Subtask, WorkerResult
+from agent_platform._internal.orchestrator_core.orchestrator import Orchestrator
 from agent_platform.agent import AgentRuntime, normalize_question
 from agent_platform.model import GatewayBlockedError
 

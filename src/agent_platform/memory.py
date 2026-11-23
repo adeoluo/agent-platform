@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from agent_memory import AgentMemory
+from agent_platform._internal.memory_store import AgentMemory
 
 MEMORY_PREFIX = "memory:"
 MAX_SESSION_ID = 128
