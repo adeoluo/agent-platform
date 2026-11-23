@@ -16,14 +16,11 @@ classifiers = [
 ]
 dependencies = [
     "llm-gateway",
-    "react-agent",
-    "multi-agent-orchestrator",
     "hybrid-rag",
     "ann-vector-search-library",
-    "constrained-generation-library",
     "evaluation-harness",
     "llm-observability",
-    "agent-memory",
+    "numpy>=1.26",
 ]
 
 [project.scripts]
@@ -31,14 +28,10 @@ agent-platform = "agent_platform.cli:main"
 
 [tool.uv.sources]
 llm-gateway = { git = "https://github.com/adeoluo/llm-gateway" }
-react-agent = { git = "https://github.com/adeoluo/react-agent" }
-multi-agent-orchestrator = { git = "https://github.com/adeoluo/multi-agent-orchestrator" }
 hybrid-rag = { git = "https://github.com/adeoluo/hybrid-rag" }
 ann-vector-search-library = { git = "https://github.com/adeoluo/ann-vector-search-library" }
-constrained-generation-library = { git = "https://github.com/adeoluo/constrained-generation-library" }
 evaluation-harness = { git = "https://github.com/adeoluo/evaluation-harness" }
 llm-observability = { git = "https://github.com/adeoluo/llm-observability" }
-agent-memory = { git = "https://github.com/adeoluo/agent-memory" }
 
 [dependency-groups]
 dev = [
@@ -53,7 +46,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agent_platform"]
+packages = [
+    "src/agent_platform",
+    "vendor/agent_memory",
+    "vendor/constrained_generation_library",
+    "vendor/multi_agent_orchestrator",
+    "vendor/react_agent",
+]
 
 # ---------------------------------------------------------------------------
 # Tooling
