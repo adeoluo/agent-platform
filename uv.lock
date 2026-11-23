@@ -246,7 +246,7 @@ dependencies = [
 [[package]]
 name = "hybrid-rag"
 version = "0.2.1"
-source = { git = "https://github.com/adeoluo/hybrid-rag#e00d19ad44a3d254e32be95979f595fa37366ef2" }
+source = { git = "https://github.com/adeoluo/hybrid-rag#2cd29c8fff7af62c117d26c261830fa5d7d25d0e" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -364,7 +364,7 @@ wheels = [
 [[package]]
 name = "llm-gateway"
 version = "0.2.3"
-source = { git = "https://github.com/adeoluo/llm-gateway#d74790c53d23afcf59a2b974ce852f91b365f89c" }
+source = { git = "https://github.com/adeoluo/llm-gateway#a78e30717a6894bf74763bbab140c39d404e7037" }
 
 [[package]]
 name = "llm-observability"

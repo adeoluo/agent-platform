@@ -89,8 +89,10 @@ of general ability.
 
 ### Benchmarks
 
-Measured on an Apple M1 (8 cores) that was shared with other heavy workloads at the time
-(load average above 100), so treat the numbers as conservative and noisy.
+Measured on an 8-core Apple M1 (1-minute load average 2.2 to 3.1 during the run). These
+benchmarks use the deterministic offline policy model so they measure HTTP, authentication,
+hybrid retrieval, and SQLite WAL / lease-fencing latency rather than remote LLM token-generation
+time.
 
 **Load** (`uv run python benchmarks/load.py`): the server runs as its own process; 20
 tenants each with their own key and corpus; 16 client threads send 2,000 `POST /v1/ask`
@@ -98,14 +100,14 @@ requests per pass over loopback. One warm-up request per tenant builds its index
 
 | Pass | Requests | Throughput | p50 | p95 | p99 | Errors |
 | --- | --- | --- | --- | --- | --- | --- |
-| Repeated questions (gateway cache hits) | 2,000 | 293.5 req/s | 44.7 ms | 94.1 ms | 116.1 ms | 0 |
-| Unique questions (every model call misses) | 2,000 | 184.3 req/s | 82.8 ms | 122.7 ms | 196.8 ms | 0 |
+| Repeated questions (gateway cache hits) | 2,000 | 516.1 req/s | 30.4 ms | 39.1 ms | 48.2 ms | 0 |
+| Unique questions (every model call misses) | 2,000 | 243.9 req/s | 63.7 ms | 93.2 ms | 142.1 ms | 0 |
 
 Every request runs the full path: key verification against SQLite, rate limiting, the
 agent loop with two gateway calls, hybrid retrieval, and a trace write. The server is a
 single Python process, so throughput is bounded by the GIL. Moving SQLite writes behind an
 in-process lock (instead of SQLite's sleep-and-retry busy handler) cut the p99 of the cached
-pass from about 1.3 s to about 0.13 s in earlier runs.
+pass from over a second to 48 ms.
 
 **Recovery** (`uv run python benchmarks/recovery.py`): five trials per lease duration. Each
 trial kills a worker with SIGKILL right after its first checkpoint of a five-step job (0.2 s
@@ -113,9 +115,9 @@ per step) and immediately starts a replacement process.
 
 | Lease | Reclaim after kill (mean / max) | Job complete after kill (mean / max) | Checkpointed steps re-executed |
 | --- | --- | --- | --- |
-| 0.5 s | 0.51 s / 0.52 s | 1.39 s / 1.49 s | 0 |
-| 1.0 s | 1.01 s / 1.02 s | 1.86 s / 1.87 s | 0 |
-| 2.0 s | 2.01 s / 2.02 s | 2.86 s / 2.88 s | 0 |
+| 0.5 s | 0.51 s / 0.52 s | 1.36 s / 1.37 s | 0 |
+| 1.0 s | 1.02 s / 1.02 s | 1.86 s / 1.86 s | 0 |
+| 2.0 s | 2.01 s / 2.01 s | 2.86 s / 2.87 s | 0 |
 
 Reclaim time tracks the lease duration, as designed: the kill lands just after a
 checkpoint renewed the lease, so the replacement waits out nearly the whole lease. The
