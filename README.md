@@ -14,7 +14,7 @@
 
 ---
 
-> **Evidence level: unit tested.** Integration tests (tests that run several parts together) cover tenant isolation, job leases, and recovery after a worker is force-stopped with SIGKILL. Throughput is measured with a deterministic offline model (fixed rules that give the same output every time, with no network), not a live large language model (LLM). No one else has reproduced the results, and the service is not used in production. [What the levels mean](https://github.com/adeoluo#evidence-levels).
+> **Evidence level: unit tested.** Integration tests (tests that run several parts together) cover tenant isolation, job leases, and recovery after a worker is force-stopped with SIGKILL. Throughput is measured with a deterministic offline model (fixed rules that give the same output every time, with no network), not a live large language model (LLM). No one else has reproduced the results, and the service is not used in production.
 
 ## Highlights
 
